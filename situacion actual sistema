@@ -1,0 +1,118 @@
+# 🔧 ServiJob — Situación Actual del Sistema
+
+> **Última actualización**: Mayo 2026 — v2.2 (Sistema de Valoraciones, Reseñas y Navegación Maestro-Detalle)
+> Para el análisis completo y detallado, ver `analisis_sistema_servijob.md` o `analisis_export.html`.
+
+---
+
+## ✅ Estado Actual — Funcionalidades Operativas
+
+### Autenticación
+- [x] Login unificado (`login.php` → `auth_login.php`) — un solo formulario para todos los roles
+- [x] Registro de usuarios con validaciones (`register.php` → `auth_register.php`)
+- [x] Middleware de sesión (`auth_guard.php`) con anti-caché y helpers
+- [x] Cierre de sesión seguro con invalidación de cookie
+- [x] Redirección automática según `role`: cliente → `index.php`, proveedor → `proveedor_panel.php`, admin → `admin_panel.php`
+
+### Panel de Cliente (`index.php`) — v2.2
+
+- [x] Layout de sidebar fijo con 3 secciones de navegación
+- [x] **Tab Explorar**: catálogo de servicios con barra sticky unificada (búsqueda + filtros + botón filtrar), paginación
+  - [x] Cada tarjeta de servicio muestra la **valoración media** (promedio de estrellas + cantidad de reseñas)
+  - [x] **Modal de servicio con layout 2 columnas**: información del servicio a la izquierda, sección de reseñas a la derecha con scroll independiente
+  - [x] **Sección "⭐ Opiniones de clientes"**: carga dinámica (AJAX) desde `get_reviews.php`; muestra puntaje promedio global, y tarjetas individuales por reseña con nombre anonimizado (Nombre + inicial del apellido), badge de usuario verificado y comentario en cursiva
+- [x] **Tab Mis Chats**: lista de conversaciones activas con badge de no-leídos, abre chat al hacer clic
+- [x] **Tab Mis Contrataciones**: lista de solicitudes de contratación del cliente
+  - [x] Tarjeta de contratación muestra: servicio, proveedor, fecha, estado (con color e ícono), motivo de rechazo/cancelación
+  - [x] Si la contratación está **valorada**, se muestra el bloque de valoración con estrellas visuales y el **comentario** que el cliente dejó
+  - [x] Protección anti-doble-valoración: el botón "Valorar Servicio" desaparece una vez valorada la contratación
+- [x] **Tab Mi Perfil**: cambio de contraseña, estado de verificación, historial de proveedores contactados
+- [x] Botón FAB "↑" para volver al tope (aparece al hacer scroll > 300px)
+- [x] Modal de postulación de verificación (→ `verify.php`)
+- [x] Ventana de chat flotante con polling de 3s
+- [x] Badge de mensajes no leídos en el ítem de navegación de chats
+
+### Panel del Proveedor (`proveedor_panel.php`) — v2.2
+
+- [x] Layout de sidebar fijo con 4 secciones de navegación
+- [x] **Tab Mis Servicios**: estadísticas globales (activos, destacados, verificados, mensajes sin leer), CRUD completo de servicios con imagen, modales de crear/editar
+  - [x] Cada tarjeta de servicio muestra un **bloque de métricas propio**: total contrataciones, solicitudes pendientes (naranja si > 0) y valoración media (estrellas + N/A si sin valoraciones)
+- [x] **Tab Mis Chats**: lista de conversaciones activas con badge de no-leídos, ventana de chat flotante con polling de 3s
+- [x] **Tab Contrataciones** — navegación Maestro-Detalle:
+  - [x] **Vista Maestro**: cuadrícula de tarjetas por servicio con métricas (total, pendientes, valoración media)
+  - [x] **Vista Detalle**: al clic en una tarjeta, muestra la lista de contrataciones específicas de ese servicio con botones de Aceptar/Rechazar/Completar y Abrir Chat
+  - [x] Botón "⬅ Volver" para regresar al maestro sin recargar la página
+  - [x] Indicadores globales en la parte superior: Servicios Completados, Puntuación media, Solicitudes Pendientes
+  - [x] Cada contratación en la vista detalle muestra la valoración recibida (estrellas + comentario del cliente) si fue valorada
+- [x] **Tab Mi Perfil**: cambio de contraseña seguro (via `proveedor_actions.php`)
+- [x] Botón FAB "↑" para volver al tope
+- [x] Badge de mensajes no leídos en el ítem de navegación de chats
+- [x] Badge de contrataciones pendientes en el ítem de navegación de contrataciones
+- [ ] **PENDIENTE**: Postulación de verificación de identidad (el modal y la llamada a `verify.php` aún no están integrados en el panel del proveedor)
+
+### Panel de Administración (`admin_panel.php`)
+- [x] Sidebar + pestañas: Usuarios, Verificaciones, Servicios, Estadísticas
+- [x] Gestión de usuarios con opciones de rol
+- [x] Revisión y aprobación/rechazo de solicitudes de verificación
+- [x] Visualización segura de documentos (`ver_doc.php`)
+- [x] Destacar/verificar/eliminar servicios
+
+### Módulo de Chat
+- [x] Tabla `chat_mensajes` en BD con FK a `servicios`, `usuarios`
+- [x] `chat_get.php`: obtiene mensajes del hilo, marca como leídos los del otro usuario
+- [x] `chat_send.php`: inserta mensajes con validación de pertenencia al hilo
+- [x] Hilos identificados por (servicio_id + cliente_id + proveedor_id)
+
+### Módulo de Valoraciones y Reseñas — NUEVO v2.2
+- [x] Tabla `valoraciones` en BD: `id`, `contratacion_id`, `proveedor_id`, `cliente_id`, `puntuacion` (1-5), `comentario`, `created_at`
+- [x] Flujo de valoración: botón "⭐ Valorar Servicio" aparece solo cuando el estado es `completado` y sin valoración previa
+- [x] Modal de valoración con selector de estrellas interactivo y campo de comentario
+- [x] Endpoint `get_reviews.php`: devuelve JSON con promedio, total y lista de reseñas anonimizadas por servicio
+  - Nombre anonimizado: `Nombre + inicial apellido` (ej. "Juan M.")
+  - Badge de verificación según tabla `verificaciones` (estado = `aprobado`)
+- [x] Las valoraciones se reflejan en las tarjetas del catálogo público (promedio en la tarjeta del servicio)
+- [x] Las valoraciones se reflejan en el panel de contrataciones del proveedor (por servicio y global)
+
+### Verificaciones
+- [x] `verify.php`: procesa y sube documentos de identidad
+- [x] Estado visible para el usuario en su perfil (pendiente / aprobado / no enviado)
+- [x] Flujo de revisión completo en el panel de administración
+
+---
+
+## ⚠️ Deuda Técnica Pendiente
+
+| Prioridad | Item | Archivo(s) involucrado(s) |
+|---|---|---|
+| 🔴 Alta | Auditoría de chats en el panel admin (monitoreo de conversaciones) | `admin_panel.php`, `admin_actions.php`, nueva tabla |
+| 🔴 Alta | **[DT-1] Verificación de servicios por pasos** — (1) perfil de proveedor verificado, (2) subir al menos 3 fotos del servicio, (3) tras 10 ventas exitosas tener un promedio ≥ 85 puntos. | `servicios` (BD), `proveedor_panel.php`, `proveedor_actions.php`, `admin_panel.php`, `admin_actions.php` |
+| 🔴 Alta | **[DT-2] Chats por servicio y no por proveedor** — El hilo debería identificarse por `(servicio_id + cliente_id)` eliminando `proveedor_id` como discriminador. Requiere migración de tabla. | `chat_mensajes` (BD), `chat_get.php`, `chat_send.php`, `index.php`, `proveedor_panel.php` |
+| 🟠 Media-Alta | **[DT-3] Mejoras al panel de administración** — Vista del perfil completo de usuario con servicios, chats y métricas. | `admin_panel.php`, `admin_actions.php` |
+| 🟠 Media-Alta | **[DT-4] Archivar chats** — Clientes y proveedores deben poder archivar conversaciones sin borrarlas. | `chat_mensajes` (BD), `chat_get.php`, `index.php`, `proveedor_panel.php` |
+| 🟡 Media | Verificación de identidad obligatoria para proveedores (modal `verify.php` en panel proveedor) | `verify.php`, `proveedor_panel.php` |
+| 🟡 Media | Eliminar archivos de utilidad en producción | `reset_admin.php`, `fix_db.php` |
+| 🟡 Media | Credenciales de BD en variables de entorno | `db.php` |
+| 🟢 Baja | Notificaciones en tiempo real (WebSockets en lugar de polling) | `chat_get.php`, `index.php`, `proveedor_panel.php` |
+| 🟢 Baja | Paginación en el panel admin (tabla de usuarios/servicios muy larga) | `admin_panel.php` |
+
+---
+
+## 📁 Archivos Clave
+
+| Archivo | Estado | Notas |
+|---|---|---|
+| `index.php` | ✅ Actualizado v2.2 | Dashboard cliente — modal 2 columnas, reseñas, valoraciones visibles en contrataciones |
+| `logic.php` | ✅ Actualizado v2.2 | Query incluye avg_rating y num_reviews; tarjetas muestran valoración media |
+| `get_reviews.php` | ✅ Nuevo v2.2 | Endpoint JSON: reseñas anonimizadas con badge de verificación |
+| `proveedor_panel.php` | ✅ Actualizado v2.2 | Maestro-Detalle en Contrataciones; métricas por servicio en Mis Servicios |
+| `contratacion_actions.php` | ✅ Operativo | Gestiona aceptar/rechazar/completar/cancelar contrataciones + enviar valoración |
+| `login.php` | ✅ Actualizado | Login unificado (sin modal de admin separado) |
+| `auth_login.php` | ✅ Actualizado | Redirige según role, sin flujo bifurcado |
+| `cliente_actions.php` | ✅ Operativo | Cambio de contraseña del cliente |
+| `chat_get.php` | ✅ Operativo | — |
+| `chat_send.php` | ✅ Operativo | — |
+| `proveedor_actions.php` | ✅ Actualizado | CRUD servicios + `change_password` |
+| `admin_panel.php` | ✅ Operativo | Sidebar + pestañas |
+| `verify.php` | ✅ Operativo | Subida de documentos |
+| `reset_admin.php` | ⚠️ BORRAR | Riesgo de seguridad en producción |
+| `fix_db.php` | ⚠️ BORRAR | Riesgo de seguridad en producción |
