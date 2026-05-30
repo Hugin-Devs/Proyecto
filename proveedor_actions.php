@@ -46,6 +46,10 @@ if ($action === 'create') {
     mysqli_stmt_bind_param($stmt, 'ssssdsi', $titulo, $descripcion, $categoria, $municipio, $precio, $imagen, $uid);
 
     $ok = mysqli_stmt_execute($stmt);
+    if ($ok) {
+        $new_id = mysqli_insert_id($conn);
+        audit('create_service', $uid, 'servicios', $new_id, "Creó servicio: $titulo");
+    }
     mysqli_stmt_close($stmt);
     header('Location: proveedor_panel.php?' . ($ok ? 'added=1' : 'err=1'));
     exit;
@@ -67,7 +71,7 @@ if ($action === 'update') {
 
     $check = mysqli_prepare($conn, "SELECT id, imagen FROM servicios WHERE id=? AND usuario_id=? LIMIT 1");
     mysqli_stmt_bind_param($check, 'ii', $id, $uid);
-    mysqli_stmt_execute($check);
+    $check_ok = mysqli_stmt_execute($check);
     $row = mysqli_stmt_get_result($check)->fetch_assoc();
     mysqli_stmt_close($check);
 
@@ -84,6 +88,9 @@ if ($action === 'update') {
     );
     mysqli_stmt_bind_param($stmt, 'ssssdsii', $titulo, $descripcion, $categoria, $municipio, $precio, $img_final, $id, $uid);
     $ok = mysqli_stmt_execute($stmt);
+    if ($ok) {
+        audit('update_service', $uid, 'servicios', $id, "Editó servicio #$id: $titulo");
+    }
     mysqli_stmt_close($stmt);
     header('Location: proveedor_panel.php?' . ($ok ? 'ok=1' : 'err=1'));
     exit;
@@ -104,15 +111,14 @@ if ($action === 'delete') {
 
     if (!$row) { header('Location: proveedor_panel.php?err=1'); exit; }
 
-    $stmt = mysqli_prepare($conn, "DELETE FROM servicios WHERE id=? AND usuario_id=?");
+    $stmt = mysqli_prepare($conn, "UPDATE servicios SET deleted_at = NOW() WHERE id=? AND usuario_id=?");
     mysqli_stmt_bind_param($stmt, 'ii', $id, $uid);
     $ok = mysqli_stmt_execute($stmt);
+    if ($ok) {
+        audit('delete_service', $uid, 'servicios', $id, "Eliminó (soft-delete) servicio #$id");
+    }
     mysqli_stmt_close($stmt);
 
-    if ($ok && $row['imagen']) {
-        $f = __DIR__ . '/uploads/' . $row['imagen'];
-        if (file_exists($f)) unlink($f);
-    }
     header('Location: proveedor_panel.php?' . ($ok ? 'del=1' : 'err=1'));
     exit;
 }
@@ -141,6 +147,7 @@ if ($action === 'change_password') {
         $stmt_upd = mysqli_prepare($conn, "UPDATE usuarios SET password = ? WHERE id = ?");
         mysqli_stmt_bind_param($stmt_upd, 'si', $new_hash, $uid);
         if (mysqli_stmt_execute($stmt_upd)) {
+            audit('password_cambiada', $uid, 'usuarios', $uid, "Cambió su contraseña (proveedor)");
             header('Location: proveedor_panel.php?tab=perfil&ok=1');
             exit;
         }

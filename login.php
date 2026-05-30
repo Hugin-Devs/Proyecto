@@ -213,6 +213,65 @@ $error = $_GET['error'] ?? '';
         }
         .back-home:hover { color: var(--white); }
 
+        /* TOGGLE PASSWORD EYE */
+        .input-wrap { position: relative; }
+        .toggle-pw {
+            position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; cursor: pointer;
+            color: var(--text-muted); padding: 0; line-height: 1;
+            transition: color 0.2s;
+        }
+        .toggle-pw:hover { color: var(--white); }
+        .toggle-pw svg { display: block; width: 18px; height: 18px; }
+        .form-group input.has-toggle { padding-right: 42px; }
+
+        /* FORGOT PASSWORD MODAL */
+        .modal-overlay {
+            display: none; position: fixed; inset: 0; z-index: 1000;
+            background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);
+            align-items: center; justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-box {
+            background: #0a1640;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 18px;
+            padding: 36px 40px;
+            width: 100%; max-width: 420px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            position: relative;
+            animation: modalIn 0.2s ease;
+        }
+        @keyframes modalIn {
+            from { opacity: 0; transform: translateY(-16px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .modal-close {
+            position: absolute; top: 16px; right: 18px;
+            background: none; border: none; color: var(--text-muted);
+            font-size: 22px; cursor: pointer; line-height: 1;
+            transition: color 0.2s;
+        }
+        .modal-close:hover { color: var(--white); }
+        .modal-box h3 {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 24px; font-weight: 700; margin-bottom: 8px;
+        }
+        .modal-box p {
+            color: var(--text-muted); font-size: 14px;
+            line-height: 1.6; margin-bottom: 24px;
+        }
+        .modal-box .form-group { margin-bottom: 20px; }
+        .modal-success {
+            display: none; text-align: center; padding: 16px 0 4px;
+        }
+        .modal-success .success-icon {
+            font-size: 40px; margin-bottom: 12px;
+        }
+        .modal-success p {
+            color: #6ee7b7; font-size: 14px; margin: 0;
+        }
+
         @media (max-width: 900px) {
             body { flex-direction: column; }
             .panel-left { display: none; }
@@ -325,14 +384,25 @@ $error = $_GET['error'] ?? '';
                 <label>Contraseña</label>
                 <div class="input-wrap">
                     <span class="input-icon">🔒</span>
-                    <input type="password" name="password" placeholder="••••••••" required>
+                    <input type="password" id="passwordInput" name="password" placeholder="••••••••" required class="has-toggle">
+                    <button type="button" class="toggle-pw" id="togglePw" aria-label="Mostrar/ocultar contraseña" title="Ver contraseña">
+                        <!-- Ojo abierto -->
+                        <svg id="iconEyeOpen" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M1.5 12s4-7.5 10.5-7.5S22.5 12 22.5 12 18.5 19.5 12 19.5 1.5 12 1.5 12z"/>
+                            <circle cx="12" cy="12" r="3" stroke-linecap="round"/>
+                        </svg>
+                        <!-- Ojo cerrado (oculto por defecto) -->
+                        <svg id="iconEyeClosed" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" style="display:none">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18M10.477 10.483A3 3 0 0 0 14.83 14.83M6.355 6.355C4.095 7.85 2.353 10.009 1.5 12c1.557 3.763 5.61 7.5 10.5 7.5a10.98 10.98 0 0 0 5.145-1.355M9.88 4.63A10.98 10.98 0 0 1 12 4.5c4.89 0 8.943 3.737 10.5 7.5a13.15 13.15 0 0 1-2.286 3.568"/>
+                        </svg>
+                    </button>
                 </div>
             </div>
             <div class="form-row">
                 <label class="remember">
                     <input type="checkbox" name="remember"> Recuérdame
                 </label>
-                <a href="#" class="forgot">¿Olvidaste tu contraseña?</a>
+                <a href="#" class="forgot" id="openForgot">¿Olvidaste tu contraseña?</a>
             </div>
             <button type="submit" class="btn-submit">Iniciar Sesión</button>
         </form>
@@ -362,3 +432,130 @@ const LOGIN_ERRORS = {
 </script>
 </body>
 </html>
+
+<!-- ===== MODAL: OLVIDÉ MI CONTRASEÑA ===== -->
+<div class="modal-overlay" id="forgotModal">
+    <div class="modal-box">
+        <button class="modal-close" id="closeForgot" aria-label="Cerrar">&times;</button>
+
+        <div id="forgotForm">
+            <h3>🔑 Recuperar contraseña</h3>
+            <p>Ingresa tu correo electrónico y te enviaremos un código para restablecer tu contraseña.</p>
+
+            <div id="forgotError" style="
+                display:none; background:rgba(255,80,80,0.12);
+                border:1px solid rgba(255,80,80,0.35);
+                border-radius:9px; padding:12px 16px;
+                color:#ff6b6b; font-size:13px; margin-bottom:16px;
+            "></div>
+
+            <div class="form-group">
+                <label>Correo electrónico</label>
+                <div class="input-wrap">
+                    <span class="input-icon">✉</span>
+                    <input type="email" id="forgotEmail" placeholder="tucorreo@email.com" autocomplete="email">
+                </div>
+            </div>
+
+            <button type="button" id="btnSendCode" class="btn-submit" style="margin-top:4px;">
+                Enviar código de recuperación
+            </button>
+        </div>
+
+        <div class="modal-success" id="forgotSuccess">
+            <div class="success-icon">📬</div>
+            <h3 style="margin-bottom:10px;">¡Correo enviado!</h3>
+            <p>Revisa tu bandeja de entrada. Te enviamos un código para restablecer tu contraseña.<br><br>
+               Si no lo ves, revisa la carpeta de spam.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+// ─── TOGGLE CONTRASEÑA ───────────────────────────────────────────
+(function() {
+    const input      = document.getElementById('passwordInput');
+    const btn        = document.getElementById('togglePw');
+    const eyeOpen    = document.getElementById('iconEyeOpen');
+    const eyeClosed  = document.getElementById('iconEyeClosed');
+
+    btn.addEventListener('click', function() {
+        const show = input.type === 'password';
+        input.type       = show ? 'text' : 'password';
+        eyeOpen.style.display   = show ? 'none'  : 'block';
+        eyeClosed.style.display = show ? 'block' : 'none';
+        btn.title = show ? 'Ocultar contraseña' : 'Ver contraseña';
+    });
+})();
+
+// ─── MODAL OLVIDÉ CONTRASEÑA ─────────────────────────────────────
+(function() {
+    const overlay    = document.getElementById('forgotModal');
+    const openBtn    = document.getElementById('openForgot');
+    const closeBtn   = document.getElementById('closeForgot');
+    const sendBtn    = document.getElementById('btnSendCode');
+    const emailInput = document.getElementById('forgotEmail');
+    const errBox     = document.getElementById('forgotError');
+    const formDiv    = document.getElementById('forgotForm');
+    const successDiv = document.getElementById('forgotSuccess');
+
+    function openModal() {
+        overlay.classList.add('active');
+        // reset estado
+        formDiv.style.display    = '';
+        successDiv.style.display = 'none';
+        errBox.style.display     = 'none';
+        emailInput.value         = '';
+        setTimeout(() => emailInput.focus(), 120);
+    }
+    function closeModal() {
+        overlay.classList.remove('active');
+    }
+
+    openBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        openModal();
+    });
+    closeBtn.addEventListener('click', closeModal);
+    overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) closeModal();
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeModal();
+    });
+
+    sendBtn.addEventListener('click', function() {
+        const email = emailInput.value.trim();
+
+        // Validación básica
+        if (!email) {
+            errBox.textContent    = '⚠ Por favor ingresa tu correo electrónico.';
+            errBox.style.display  = 'block';
+            emailInput.focus();
+            return;
+        }
+        const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRe.test(email)) {
+            errBox.textContent    = '⚠ El correo ingresado no es válido.';
+            errBox.style.display  = 'block';
+            emailInput.focus();
+            return;
+        }
+
+        errBox.style.display = 'none';
+
+        // Estado de carga
+        sendBtn.disabled    = true;
+        sendBtn.textContent = 'Enviando…';
+
+        // Aquí va tu petición real, ej: fetch('forgot_password.php', ...)
+        // Por ahora simulamos el envío con un pequeño delay:
+        setTimeout(function() {
+            formDiv.style.display    = 'none';
+            successDiv.style.display = 'block';
+            sendBtn.disabled         = false;
+            sendBtn.textContent      = 'Enviar código de recuperación';
+        }, 1200);
+    });
+})();
+</script>

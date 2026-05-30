@@ -73,6 +73,8 @@ if (!$stmt) {
 mysqli_stmt_bind_param($stmt, 'sssi', $nombre, $municipio, $nombre_archivo, $uid);
 
 if (mysqli_stmt_execute($stmt)) {
+    $verificacion_id = mysqli_insert_id($conn);
+    audit('verificacion_solicitada', $uid, 'verificaciones', $verificacion_id, "Solicitud de verificación de identidad, documento: $nombre_archivo");
     mysqli_stmt_close($stmt);
     header('Location: index.php?verify_ok=1');
 } else {

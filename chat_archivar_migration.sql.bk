@@ -1,0 +1,20 @@
+-- ============================================================
+--  SERVI-JOB — Migración: campo archivado en chat_mensajes
+--  Ejecutar UNA SOLA VEZ en HeidiSQL / phpMyAdmin
+-- ============================================================
+
+ALTER TABLE `chat_mensajes`
+  ADD COLUMN `archivado_cliente`   TINYINT(1) NOT NULL DEFAULT 0,
+  ADD COLUMN `archivado_proveedor` TINYINT(1) NOT NULL DEFAULT 0;
+
+-- Índices opcionales para acelerar filtros
+ALTER TABLE `chat_mensajes`
+  ADD KEY `idx_arch_cli`  (`archivado_cliente`),
+  ADD KEY `idx_arch_prov` (`archivado_proveedor`);
+
+SELECT servicio_id, cliente_id, proveedor_id,
+       MAX(archivado_cliente)   AS arch_cli,
+       MAX(archivado_proveedor) AS arch_prov,
+       COUNT(*) AS mensajes
+FROM chat_mensajes
+GROUP BY servicio_id, cliente_id, proveedor_id;

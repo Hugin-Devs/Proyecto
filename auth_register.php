@@ -107,5 +107,7 @@ $_SESSION['user_id']   = $nuevo_id;
 $_SESSION['user_name'] = $nombre;
 $_SESSION['user_role'] = $role;
 
+audit('register', $nuevo_id, 'usuarios', $nuevo_id, "Registro exitoso: " . $email . " como " . $role);
+
 header('Location: index.php');
 exit;

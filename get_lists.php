@@ -17,4 +17,3 @@ function slugify(string $str): string {
     $to   = ['a','e','i','o','u','u','n','a','e','i','o','u','u','n'];
     return strtolower(str_replace($from, $to, $str));
 }
-?>

@@ -1,6 +1,6 @@
 # 🔧 ServiJob — Análisis Completo del Sistema
 
-**Última actualización**: Mayo 2026 — v2.2 (Sistema de Valoraciones, Reseñas y Navegación Maestro-Detalle)
+**Última actualización**: Mayo 30 - 2026 — v2.5 (Módulo de Auditoría y Seguridad Completo, Perfil 360°, Suspensión de Usuarios, logs inmutables, monitor de chats y verificación de servicios)
 
 ## Visión General
 
@@ -388,7 +388,7 @@ El chat es una ventana flotante (`#chatWindow`) que funciona con **polling** (in
 
 ---
 
-## ⚠️ Observaciones y Puntos de Mejora
+## ⚠️ Observaciones y Estado del Sistema (v2.5)
 
 > [!NOTE]
 > **Login Unificado** — El sistema ya no tiene botón/modal separado para admin. Un solo formulario de login en `login.php` redirige según el `role` de la BD.
@@ -399,8 +399,8 @@ El chat es una ventana flotante (`#chatWindow`) que funciona con **polling** (in
 > [!TIP]
 > **Conexión BD en texto plano** — Las credenciales en `db.php` usan `root` sin contraseña, ideal para desarrollo local pero debe cambiarse para producción. Considerar variables de entorno.
 
-> [!WARNING]
-> **[DT-0] Deuda base pendiente** — El módulo de auditoría de chats (para que el admin pueda monitorear conversaciones) está planificado pero no implementado aún.
+> [!NOTE]
+> **✅ [DT-0] Auditoría de chats (COMPLETADO v2.5)** — El administrador tiene un monitor de hilos de chat integrado y seguro en tiempo real, permitiendo una supervisión en modo solo lectura de todas las conversaciones vinculadas a servicios del sistema.
 
 > [!IMPORTANT]
 > **[DT-1] Verificación de servicios por pasos** — Los proveedores como personas deben seguir el mismo proceso de verificación de identidad que los clientes. Adicionalmente, los servicios que publican deben pasar por un flujo de verificación propio de 3 pasos:
@@ -409,14 +409,14 @@ El chat es una ventana flotante (`#chatWindow`) que funciona con **polling** (in
 > 3. Después de **10 ventas exitosas**, mantener un **promedio mínimo de 85 puntos** en valoraciones.
 > Archivos afectados: `servicios` (BD), `proveedor_panel.php`, `proveedor_actions.php`, `admin_panel.php`, `admin_actions.php`.
 
-> [!IMPORTANT]
-> **[DT-2] Chats por servicio** — El chat debe estar vinculado al servicio y NO al proveedor directamente. Un proveedor con varios servicios (ej. plomería y arte) tendrá hilos de chat completamente separados por cada servicio, aunque el cliente sea el mismo. El identificador de hilo cambia de `(servicio_id + cliente_id + proveedor_id)` a `(servicio_id + cliente_id)`. Requiere migración de la tabla `chat_mensajes` y actualización de `chat_get.php`, `chat_send.php`, `index.php` y `proveedor_panel.php`.
+> [!NOTE]
+> **✅ [DT-2] Chats por servicio (COMPLETADO)** — El chat está formalmente vinculado al servicio y no al proveedor directamente. Un proveedor con varios servicios (ej. plomería y arte) cuenta con hilos de chat separados por cada servicio. El identificador de hilo se actualizó de `(servicio_id + cliente_id + proveedor_id)` a `(servicio_id + cliente_id)`. Se aplicó la migración en `chat_mensajes` y la lógica correspondiente en `chat_get.php`, `chat_send.php`, `index.php` y `proveedor_panel.php`.
 
-> [!IMPORTANT]
-> **[DT-3] Mejoras al panel de administración** — El admin debe poder ver el perfil completo de cada usuario (proveedor o cliente), incluyendo: datos personales, servicios publicados, chats asociados a cada servicio y métricas de actividad. Requiere nuevas vistas detalladas dentro de `admin_panel.php` y nuevos endpoints en `admin_actions.php`.
+> [!NOTE]
+> **✅ [DT-3] Mejoras al panel de administración (COMPLETADO v2.5)** — Se implementó la vista detallada "Perfil 360°" que permite al admin auditar el estado del usuario, sus servicios y chats. Se añadió soporte para suspender/reactivar cuentas de usuarios en tiempo real, y controles individuales para verificar/desverificar servicios directamente desde las tablas.
 
-> [!IMPORTANT]
-> **[DT-4] Archivar chats** — Tanto clientes como proveedores deben poder archivar conversaciones. Los chats archivados no se eliminan; simplemente se ocultan de la bandeja principal y son accesibles desde una sección o filtro "Archivados". Requiere un nuevo campo (ej. `archivado_cliente`, `archivado_proveedor`) en `chat_mensajes` o una tabla auxiliar, más actualización de UI en `index.php` y `proveedor_panel.php`.
+> [!NOTE]
+> **✅ [DT-4] Archivar chats (COMPLETADO)** — Se integró la función para archivar conversaciones tanto para clientes como para proveedores. Los chats archivados no se eliminan; se ocultan de la bandeja principal y se trasladan al filtro/sección de "Archivados". Se añadió el campo correspondiente en la persistencia de datos y se actualizó la interfaz de usuario en `index.php` y `proveedor_panel.php`.
 
 ---
 

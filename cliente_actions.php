@@ -27,6 +27,7 @@ if ($action === 'change_password') {
         $stmt_upd = mysqli_prepare($conn, "UPDATE usuarios SET password = ? WHERE id = ?");
         mysqli_stmt_bind_param($stmt_upd, 'si', $new_hash, $uid);
         if (mysqli_stmt_execute($stmt_upd)) {
+            audit('password_cambiada', $uid, 'usuarios', $uid, "Cambió su contraseña (cliente)");
             header('Location: index.php?tab=perfil&ok=1');
             exit;
         }

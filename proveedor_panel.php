@@ -31,6 +31,8 @@ if (isset($_GET['del']))   { $msg = '✔ Servicio eliminado.';               $ms
 if (isset($_GET['err']))   { $msg = '✗ Ocurrió un error. Intenta de nuevo.'; $msg_type = 'error'; }
 
 // ── Traer conversaciones de chat del proveedor ────────────────
+$chat_filtro_prov = isset($_GET['chats_tab']) && $_GET['chats_tab'] === 'archivados' ? 1 : 0;
+
 $stmt_chats = mysqli_prepare($conn,
     "SELECT
         cm.servicio_id,
@@ -39,21 +41,44 @@ $stmt_chats = mysqli_prepare($conn,
         s.titulo        AS servicio_titulo,
         u.nombre        AS cliente_nombre,
         u.apellido      AS cliente_apellido,
-        MAX(cm.created_at) AS ultimo_at,
+        MAX(cm.created_at)  AS ultimo_at,
         SUBSTRING_INDEX(GROUP_CONCAT(cm.mensaje ORDER BY cm.created_at DESC SEPARATOR '|||'), '|||', 1) AS ultimo_msg,
-        SUM(cm.leido = 0 AND cm.emisor_id != ?) AS no_leidos
+        SUM(cm.leido = 0 AND cm.emisor_id != ?)   AS no_leidos,
+        MAX(cm.archivado_proveedor)               AS esta_archivado
      FROM chat_mensajes cm
      JOIN servicios s ON s.id = cm.servicio_id
      JOIN usuarios  u ON u.id = cm.cliente_id
      WHERE cm.proveedor_id = ?
      GROUP BY cm.servicio_id, cm.cliente_id, cm.proveedor_id
+     HAVING MAX(cm.archivado_proveedor) = ?
      ORDER BY ultimo_at DESC"
 );
-mysqli_stmt_bind_param($stmt_chats, 'ii', $uid, $uid);
+mysqli_stmt_bind_param($stmt_chats, 'iii', $uid, $uid, $chat_filtro_prov);
 mysqli_stmt_execute($stmt_chats);
 $chats = mysqli_stmt_get_result($stmt_chats)->fetch_all(MYSQLI_ASSOC);
 mysqli_stmt_close($stmt_chats);
-$total_no_leidos = array_sum(array_column($chats, 'no_leidos'));
+
+// No leídos solo en activos (para el stat card)
+$stmt_nl_prov = mysqli_prepare($conn,
+    "SELECT SUM(cm.leido = 0 AND cm.emisor_id != ?) AS total_nl
+     FROM chat_mensajes cm
+     WHERE cm.proveedor_id = ? AND cm.archivado_proveedor = 0"
+);
+mysqli_stmt_bind_param($stmt_nl_prov, 'ii', $uid, $uid);
+mysqli_stmt_execute($stmt_nl_prov);
+$total_no_leidos = (int)(mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_nl_prov))['total_nl'] ?? 0);
+mysqli_stmt_close($stmt_nl_prov);
+
+// Total archivados del proveedor (para el contador del filtro)
+$stmt_arch_prov = mysqli_prepare($conn,
+    "SELECT COUNT(DISTINCT CONCAT(servicio_id,'-',cliente_id,'-',proveedor_id)) AS total_arch
+     FROM chat_mensajes
+     WHERE proveedor_id = ? AND archivado_proveedor = 1"
+);
+mysqli_stmt_bind_param($stmt_arch_prov, 'i', $uid);
+mysqli_stmt_execute($stmt_arch_prov);
+$total_archivados_prov = (int)(mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_arch_prov))['total_arch'] ?? 0);
+mysqli_stmt_close($stmt_arch_prov);
 
 // ── Traer contrataciones del proveedor ─────────────────────────
 $stmt_contratos = mysqli_prepare($conn,
@@ -402,8 +427,27 @@ $tab = $_GET['tab'] ?? 'servicios';
             display:flex; align-items:center; justify-content:center;
             padding:0 5px; flex-shrink:0;
         }
-
-        /* ── Ventana de chat flotante (igual que en index.php) ─ */
+        .conv-item.archivado { opacity: 0.6; }
+        .conv-item.archivado .conv-name { color: var(--text-muted); }
+        .conv-arch-btn {
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+            color: var(--text-muted); font-size: 11px; font-weight: 600;
+            padding: 4px 10px; border-radius: 6px; cursor: pointer;
+            flex-shrink: 0; transition: all .2s; white-space: nowrap;
+        }
+        .conv-arch-btn:hover { background:rgba(245,130,13,0.15); border-color:rgba(245,130,13,0.4); color:var(--orange); }
+        .conv-arch-btn.desarchivar { background:rgba(61,122,245,0.1); border-color:rgba(61,122,245,0.3); color:var(--blue-light); }
+        .conv-arch-btn.desarchivar:hover { background:rgba(61,122,245,0.2); }
+        .chat-tabs { display:flex; gap:8px; margin-bottom:20px; }
+        .chat-tab-btn {
+            padding:8px 18px; border-radius:8px; font-size:13px; font-weight:600;
+            border:1px solid var(--border); background:var(--card-bg);
+            color:var(--text-muted); transition:all .2s;
+            font-family:'DM Sans',sans-serif; display:flex; align-items:center; gap:6px;
+            text-decoration:none; cursor:pointer;
+        }
+        .chat-tab-btn.active { background:rgba(61,122,245,0.15); border-color:rgba(61,122,245,0.4); color:var(--blue-light); }
+        .chat-tab-count { background:rgba(255,255,255,0.1); font-size:10px; padding:1px 6px; border-radius:8px; }
         #chatWindow {
             display:none; position:fixed;
             bottom:28px; right:28px;
@@ -686,11 +730,25 @@ $tab = $_GET['tab'] ?? 'servicios';
             <p>Gestiona tus conversaciones con los clientes</p>
         </div>
 
+        <!-- Filtro activos / archivados -->
+        <div class="chat-tabs">
+            <a href="?tab=chats&chats_tab=activos" class="chat-tab-btn <?= ($chat_filtro_prov == 0 ? 'active' : '') ?>">
+                💬 Activos
+            </a>
+            <a href="?tab=chats&chats_tab=archivados" class="chat-tab-btn <?= ($chat_filtro_prov == 1 ? 'active' : '') ?>">
+                📦 Archivados
+                <?php if ($total_archivados_prov > 0): ?>
+                    <span class="chat-tab-count"><?= $total_archivados_prov ?></span>
+                <?php endif; ?>
+            </a>
+        </div>
 
         <?php if (empty($chats)): ?>
             <div class="empty-state">
-                <div class="empty-icon">💬</div>
-                <p>Aún no tienes mensajes de clientes.<br>Cuando alguien te contacte, aparecerá aquí.</p>
+                <div class="empty-icon"><?= $chat_filtro_prov ? '📦' : '💬' ?></div>
+                <p><?= $chat_filtro_prov
+                    ? 'No tienes conversaciones archivadas.'
+                    : 'Aún no tienes mensajes de clientes.<br>Cuando alguien te contacte, aparecerá aquí.' ?></p>
             </div>
         <?php else: ?>
             <div class="conv-list">
@@ -700,16 +758,22 @@ $tab = $_GET['tab'] ?? 'servicios';
                     $preview = htmlspecialchars(mb_substr($c['ultimo_msg'], 0, 80));
                     $no_leidos = (int)$c['no_leidos'];
                     $hora = date('d/m H:i', strtotime($c['ultimo_at']));
-                    $data_conv = json_encode([
+                    $esta_archivado = (int)$c['esta_archivado'];
+                    $data_conv = htmlspecialchars(json_encode([
                         'servicio_id'  => (int)$c['servicio_id'],
                         'cliente_id'   => (int)$c['cliente_id'],
                         'proveedor_id' => (int)$c['proveedor_id'],
                         'titulo'       => $c['servicio_titulo'],
                         'nombre'       => $c['cliente_nombre'] . ' ' . $c['cliente_apellido'],
-                    ]);
+                    ]), ENT_QUOTES);
+                    $data_arch = htmlspecialchars(json_encode([
+                        'servicio_id'  => (int)$c['servicio_id'],
+                        'cliente_id'   => (int)$c['cliente_id'],
+                        'proveedor_id' => (int)$c['proveedor_id'],
+                    ]), ENT_QUOTES);
                 ?>
-                    <div class="conv-item <?= $no_leidos > 0 ? 'unread' : '' ?>"
-                         onclick='abrirConversacion(<?= htmlspecialchars($data_conv, ENT_QUOTES) ?>)'>
+                    <div class="conv-item <?= $no_leidos > 0 ? 'unread' : '' ?> <?= $esta_archivado ? 'archivado' : '' ?>"
+                         onclick='abrirConversacion(<?= $data_conv ?>)'>
                         <div class="conv-avatar"><?= $iniciales ?></div>
                         <div class="conv-info">
                             <div class="conv-top">
@@ -722,6 +786,10 @@ $tab = $_GET['tab'] ?? 'servicios';
                         <?php if ($no_leidos > 0): ?>
                             <div class="conv-unread-badge"><?= $no_leidos ?></div>
                         <?php endif; ?>
+                        <button class="conv-arch-btn <?= $esta_archivado ? 'desarchivar' : '' ?>"
+                                onclick="event.stopPropagation(); archivarChat(<?= $data_arch ?>, <?= $esta_archivado ? 0 : 1 ?>, this)">
+                            <?= $esta_archivado ? '↩ Mover a activos' : '📦 Archivar' ?>
+                        </button>
                     </div>
                 <?php endforeach; ?>
             </div>
@@ -1372,6 +1440,33 @@ document.getElementById('chatInput').addEventListener('input', function() { auto
 document.getElementById('chatInput').addEventListener('keydown', function(e) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarMensaje(); }
 });
+
+// ── Archivar / Desarchivar chat ───────────────────────────
+async function archivarChat(ctx, archivar, btn) {
+    btn.disabled = true;
+    const fd = new FormData();
+    fd.append('servicio_id',  ctx.servicio_id);
+    fd.append('cliente_id',   ctx.cliente_id);
+    fd.append('proveedor_id', ctx.proveedor_id);
+    fd.append('archivar',     archivar);
+    try {
+        const res  = await fetch('chat_archivar.php', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.ok) {
+            const item = btn.closest('.conv-item');
+            item.style.transition = 'all .3s ease';
+            item.style.opacity = '0';
+            item.style.transform = 'translateX(20px)';
+            setTimeout(() => item.remove(), 300);
+        } else {
+            alert('Error: ' + (data.error || 'No se pudo archivar'));
+            btn.disabled = false;
+        }
+    } catch(e) {
+        alert('Error de conexión');
+        btn.disabled = false;
+    }
+}
 
 // ══════════════════════════════════════════════════════════
 //  ACCIONES DE CONTRATACIÓN

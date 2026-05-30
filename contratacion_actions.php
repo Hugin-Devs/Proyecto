@@ -41,6 +41,8 @@ if ($action === 'solicitar') {
         $insert = mysqli_prepare($conn, "INSERT INTO contrataciones (servicio_id, cliente_id, proveedor_id) VALUES (?, ?, ?)");
         mysqli_stmt_bind_param($insert, 'iii', $servicio_id, $mi_id, $proveedor_id);
         if (mysqli_stmt_execute($insert)) {
+            $contratacion_id = mysqli_insert_id($conn);
+            audit('contratacion_creada', $mi_id, 'contrataciones', $contratacion_id, "Solicitó servicio #$servicio_id al proveedor #$proveedor_id");
             echo json_encode(['ok' => true]);
         } else {
             echo json_encode(['ok' => false, 'error' => 'Error al crear la solicitud.']);
@@ -62,6 +64,7 @@ if ($action === 'aceptar') {
     $upd = mysqli_prepare($conn, "UPDATE contrataciones SET estado = 'aceptado' WHERE id = ? AND proveedor_id = ? AND estado = 'pendiente'");
     mysqli_stmt_bind_param($upd, 'ii', $contratacion_id, $mi_id);
     if (mysqli_stmt_execute($upd) && mysqli_stmt_affected_rows($upd) > 0) {
+        audit('contratacion_aceptada', $mi_id, 'contrataciones', $contratacion_id, "Aceptó la contratación #$contratacion_id");
         echo json_encode(['ok' => true]);
     } else {
         echo json_encode(['ok' => false, 'error' => 'No se pudo aceptar la solicitud.']);
@@ -86,6 +89,7 @@ if ($action === 'rechazar') {
     $upd = mysqli_prepare($conn, "UPDATE contrataciones SET estado = 'rechazado', motivo = ? WHERE id = ? AND proveedor_id = ? AND estado = 'pendiente'");
     mysqli_stmt_bind_param($upd, 'sii', $motivo, $contratacion_id, $mi_id);
     if (mysqli_stmt_execute($upd) && mysqli_stmt_affected_rows($upd) > 0) {
+        audit('contratacion_rechazada', $mi_id, 'contrataciones', $contratacion_id, "Rechazó la contratación #$contratacion_id. Motivo: $motivo");
         echo json_encode(['ok' => true]);
     } else {
         echo json_encode(['ok' => false, 'error' => 'No se pudo rechazar la solicitud.']);
@@ -110,6 +114,7 @@ if ($action === 'cancelar') {
     $upd = mysqli_prepare($conn, "UPDATE contrataciones SET estado = 'cancelado', motivo = ? WHERE id = ? AND cliente_id = ? AND estado IN ('pendiente', 'aceptado')");
     mysqli_stmt_bind_param($upd, 'sii', $motivo, $contratacion_id, $mi_id);
     if (mysqli_stmt_execute($upd) && mysqli_stmt_affected_rows($upd) > 0) {
+        audit('contratacion_cancelada', $mi_id, 'contrataciones', $contratacion_id, "Canceló la contratación #$contratacion_id. Motivo: $motivo");
         echo json_encode(['ok' => true]);
     } else {
         echo json_encode(['ok' => false, 'error' => 'No se pudo cancelar la contratación.']);
@@ -128,6 +133,7 @@ if ($action === 'completar') {
     $upd = mysqli_prepare($conn, "UPDATE contrataciones SET estado = 'completado' WHERE id = ? AND proveedor_id = ? AND estado = 'aceptado'");
     mysqli_stmt_bind_param($upd, 'ii', $contratacion_id, $mi_id);
     if (mysqli_stmt_execute($upd) && mysqli_stmt_affected_rows($upd) > 0) {
+        audit('contratacion_completada', $mi_id, 'contrataciones', $contratacion_id, "Marcó como completada la contratación #$contratacion_id");
         echo json_encode(['ok' => true]);
     } else {
         echo json_encode(['ok' => false, 'error' => 'No se pudo completar la contratación.']);
@@ -170,6 +176,8 @@ if ($action === 'valorar') {
         $insert = mysqli_prepare($conn, "INSERT INTO valoraciones (contratacion_id, cliente_id, proveedor_id, puntuacion, comentario) VALUES (?, ?, ?, ?, ?)");
         mysqli_stmt_bind_param($insert, 'iiiis', $contratacion_id, $mi_id, $proveedor_id, $puntuacion, $comentario);
         if (mysqli_stmt_execute($insert)) {
+            $val_id = mysqli_insert_id($conn);
+            audit('valoracion_enviada', $mi_id, 'valoraciones', $val_id, "Valoró contratación #$contratacion_id con $puntuacion estrellas");
             echo json_encode(['ok' => true]);
         } else {
             echo json_encode(['ok' => false, 'error' => 'Error al guardar la valoración.']);
