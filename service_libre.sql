@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: localhost
--- Tiempo de generación: 24-05-2026 a las 00:51:34
+-- Tiempo de generación: 30-05-2026 a las 08:07:53
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -20,8 +20,37 @@ SET time_zone = "+00:00";
 --
 -- Base de datos: `service_libre`
 --
-CREATE DATABASE IF NOT EXISTS `service_libre` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE `service_libre`;
+
+-- --------------------------------------------------------
+
+--
+-- Estructura de tabla para la tabla `audit_log`
+--
+
+CREATE TABLE `audit_log` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `usuario_id` int(10) UNSIGNED DEFAULT NULL COMMENT 'NULL si es acción del sistema',
+  `tipo` varchar(60) NOT NULL,
+  `entidad` varchar(40) DEFAULT NULL,
+  `entidad_id` int(10) UNSIGNED DEFAULT NULL,
+  `descripcion` text DEFAULT NULL,
+  `ip` varchar(45) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Volcado de datos para la tabla `audit_log`
+--
+
+INSERT INTO `audit_log` (`id`, `usuario_id`, `tipo`, `entidad`, `entidad_id`, `descripcion`, `ip`, `created_at`) VALUES
+(1, 3, 'logout', 'usuarios', 3, 'Logout', '127.0.0.1', '2026-05-30 01:15:01'),
+(2, 1, 'login', 'usuarios', 1, 'Login unificado exitoso', '127.0.0.1', '2026-05-30 01:15:10'),
+(3, 1, 'logout', 'usuarios', 1, 'Logout', '127.0.0.1', '2026-05-30 01:25:58'),
+(4, 1, 'login', 'usuarios', 1, 'Login unificado exitoso', '127.0.0.1', '2026-05-30 01:26:01'),
+(5, 1, 'login', 'usuarios', 1, 'Login unificado exitoso', '127.0.0.1', '2026-05-30 01:38:17'),
+(6, 1, 'logout', 'usuarios', 1, 'Logout', '127.0.0.1', '2026-05-30 01:38:24'),
+(7, 1, 'admin_toggle_verificado', 'servicios', 7, 'Admin cambió estado verificado del servicio #7', '127.0.0.1', '2026-05-30 01:43:22'),
+(8, 1, 'admin_toggle_verificado', 'servicios', 7, 'Admin cambió estado verificado del servicio #7', '127.0.0.1', '2026-05-30 01:43:49');
 
 -- --------------------------------------------------------
 
@@ -29,7 +58,6 @@ USE `service_libre`;
 -- Estructura de tabla para la tabla `categorias`
 --
 
-DROP TABLE IF EXISTS `categorias`;
 CREATE TABLE `categorias` (
   `id` int(10) UNSIGNED NOT NULL,
   `nombre` varchar(80) NOT NULL
@@ -55,7 +83,6 @@ INSERT INTO `categorias` (`id`, `nombre`) VALUES
 -- Estructura de tabla para la tabla `chat_mensajes`
 --
 
-DROP TABLE IF EXISTS `chat_mensajes`;
 CREATE TABLE `chat_mensajes` (
   `id` int(10) UNSIGNED NOT NULL,
   `servicio_id` int(10) UNSIGNED NOT NULL,
@@ -64,15 +91,17 @@ CREATE TABLE `chat_mensajes` (
   `emisor_id` int(10) UNSIGNED NOT NULL,
   `mensaje` text NOT NULL,
   `leido` tinyint(1) NOT NULL DEFAULT 0,
-  `created_at` datetime NOT NULL DEFAULT current_timestamp()
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `archivado_cliente` tinyint(1) NOT NULL DEFAULT 0,
+  `archivado_proveedor` tinyint(1) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Volcado de datos para la tabla `chat_mensajes`
 --
 
-INSERT INTO `chat_mensajes` (`id`, `servicio_id`, `cliente_id`, `proveedor_id`, `emisor_id`, `mensaje`, `leido`, `created_at`) VALUES
-(1, 7, 2, 3, 2, 'Hola que tal', 1, '2026-05-22 19:06:02');
+INSERT INTO `chat_mensajes` (`id`, `servicio_id`, `cliente_id`, `proveedor_id`, `emisor_id`, `mensaje`, `leido`, `created_at`, `archivado_cliente`, `archivado_proveedor`) VALUES
+(1, 7, 2, 3, 2, 'Hola que tal', 1, '2026-05-22 19:06:02', 0, 0);
 
 -- --------------------------------------------------------
 
@@ -80,7 +109,6 @@ INSERT INTO `chat_mensajes` (`id`, `servicio_id`, `cliente_id`, `proveedor_id`, 
 -- Estructura de tabla para la tabla `contrataciones`
 --
 
-DROP TABLE IF EXISTS `contrataciones`;
 CREATE TABLE `contrataciones` (
   `id` int(10) UNSIGNED NOT NULL,
   `servicio_id` int(10) UNSIGNED NOT NULL,
@@ -106,7 +134,6 @@ INSERT INTO `contrataciones` (`id`, `servicio_id`, `cliente_id`, `proveedor_id`,
 -- Estructura de tabla para la tabla `municipios`
 --
 
-DROP TABLE IF EXISTS `municipios`;
 CREATE TABLE `municipios` (
   `id` int(10) UNSIGNED NOT NULL,
   `nombre` varchar(60) NOT NULL
@@ -128,7 +155,6 @@ INSERT INTO `municipios` (`id`, `nombre`) VALUES
 -- Estructura de tabla para la tabla `servicios`
 --
 
-DROP TABLE IF EXISTS `servicios`;
 CREATE TABLE `servicios` (
   `id` int(10) UNSIGNED NOT NULL,
   `titulo` varchar(200) NOT NULL,
@@ -156,7 +182,7 @@ INSERT INTO `servicios` (`id`, `titulo`, `descripcion`, `imagen`, `categoria`, `
 (4, 'Barbería Estilo Libre — Cortes modernos y afeitado', NULL, NULL, 'Belleza', 'Libertador', 15.00, NULL, 0, 0, '2026-05-22 17:07:44', NULL, NULL),
 (5, 'Soporte Técnico PC — Reparación y mantenimiento', NULL, NULL, 'Tecnología', 'Chacao', 30.00, NULL, 0, 0, '2026-05-22 17:07:44', NULL, NULL),
 (6, 'Remodelaciones LM — Pintura, cerámica y carpintería', NULL, NULL, 'Remodelación', 'Baruta', 200.00, NULL, 0, 0, '2026-05-22 17:07:44', NULL, NULL),
-(7, 'Servicio de Pruebas', NULL, NULL, 'Tecnología', 'libertador', 2500.00, 3, 0, 0, '2026-05-22 19:05:28', '2026-05-23 01:37:45', NULL);
+(7, 'Servicio de Pruebas', NULL, NULL, 'Tecnología', 'libertador', 2500.00, 3, 0, 0, '2026-05-22 19:05:28', '2026-05-30 01:43:49', NULL);
 
 -- --------------------------------------------------------
 
@@ -164,7 +190,6 @@ INSERT INTO `servicios` (`id`, `titulo`, `descripcion`, `imagen`, `categoria`, `
 -- Estructura de tabla para la tabla `usuarios`
 --
 
-DROP TABLE IF EXISTS `usuarios`;
 CREATE TABLE `usuarios` (
   `id` int(10) UNSIGNED NOT NULL,
   `nombre` varchar(80) NOT NULL,
@@ -176,17 +201,18 @@ CREATE TABLE `usuarios` (
   `last_login` datetime DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT NULL ON UPDATE current_timestamp(),
-  `deleted_at` datetime DEFAULT NULL
+  `deleted_at` datetime DEFAULT NULL,
+  `suspendido_at` datetime DEFAULT NULL COMMENT 'NULL = activo, fecha = suspendido desde esa fecha'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Volcado de datos para la tabla `usuarios`
 --
 
-INSERT INTO `usuarios` (`id`, `nombre`, `apellido`, `email`, `telefono`, `password`, `role`, `last_login`, `created_at`, `updated_at`, `deleted_at`) VALUES
-(1, 'Admin', 'ServiJob', 'admin@servijob.com', '', '$2y$10$Sb2NT0Hjz9bmnmpnVGUk0.RTJtb4cTWPVuphJvFCiNvoV2Cp3livm', 'admin', '2026-05-23 01:37:31', '2026-05-22 17:07:44', '2026-05-23 01:37:31', NULL),
-(2, 'user', 'test', 'usertest1@servijob.com', '', '$2y$10$wlIOO6STTlS2OLUvbG0d0uNFnG14oT9DcDfymE3wKjl6OJo7Sx2WO', 'cliente', '2026-05-23 01:21:02', '2026-05-22 18:20:00', '2026-05-23 01:21:02', NULL),
-(3, 'proveedor', 'test', 'proveedortest1@servijob.com', '', '$2y$10$/SUSeiHnStAVC5x/hH0TputZh2scJDwKfZ0UxGxTQOYMI7A1/a.gK', 'proveedor', '2026-05-23 01:38:21', '2026-05-22 19:05:28', '2026-05-23 01:38:21', NULL);
+INSERT INTO `usuarios` (`id`, `nombre`, `apellido`, `email`, `telefono`, `password`, `role`, `last_login`, `created_at`, `updated_at`, `deleted_at`, `suspendido_at`) VALUES
+(1, 'Admin', 'ServiJob', 'admin@servijob.com', '', '$2y$10$Sb2NT0Hjz9bmnmpnVGUk0.RTJtb4cTWPVuphJvFCiNvoV2Cp3livm', 'admin', '2026-05-30 01:38:17', '2026-05-22 17:07:44', '2026-05-30 01:38:17', NULL, NULL),
+(2, 'user', 'test', 'usertest1@servijob.com', '', '$2y$10$wlIOO6STTlS2OLUvbG0d0uNFnG14oT9DcDfymE3wKjl6OJo7Sx2WO', 'cliente', '2026-05-23 01:21:02', '2026-05-22 18:20:00', '2026-05-23 01:21:02', NULL, NULL),
+(3, 'proveedor', 'test', 'proveedortest1@servijob.com', '', '$2y$10$/SUSeiHnStAVC5x/hH0TputZh2scJDwKfZ0UxGxTQOYMI7A1/a.gK', 'proveedor', '2026-05-23 01:38:21', '2026-05-22 19:05:28', '2026-05-23 01:38:21', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -194,7 +220,6 @@ INSERT INTO `usuarios` (`id`, `nombre`, `apellido`, `email`, `telefono`, `passwo
 -- Estructura de tabla para la tabla `valoraciones`
 --
 
-DROP TABLE IF EXISTS `valoraciones`;
 CREATE TABLE `valoraciones` (
   `id` int(10) UNSIGNED NOT NULL,
   `contratacion_id` int(10) UNSIGNED NOT NULL,
@@ -219,7 +244,6 @@ INSERT INTO `valoraciones` (`id`, `contratacion_id`, `cliente_id`, `proveedor_id
 -- Estructura de tabla para la tabla `verificaciones`
 --
 
-DROP TABLE IF EXISTS `verificaciones`;
 CREATE TABLE `verificaciones` (
   `id` int(10) UNSIGNED NOT NULL,
   `nombre` varchar(120) NOT NULL,
@@ -233,6 +257,15 @@ CREATE TABLE `verificaciones` (
 --
 -- Índices para tablas volcadas
 --
+
+--
+-- Indices de la tabla `audit_log`
+--
+ALTER TABLE `audit_log`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_tipo` (`tipo`),
+  ADD KEY `idx_usuario` (`usuario_id`),
+  ADD KEY `idx_creado` (`created_at`);
 
 --
 -- Indices de la tabla `categorias`
@@ -305,6 +338,12 @@ ALTER TABLE `verificaciones`
 --
 
 --
+-- AUTO_INCREMENT de la tabla `audit_log`
+--
+ALTER TABLE `audit_log`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+
+--
 -- AUTO_INCREMENT de la tabla `categorias`
 --
 ALTER TABLE `categorias`
@@ -357,6 +396,12 @@ ALTER TABLE `verificaciones`
 --
 
 --
+-- Filtros para la tabla `audit_log`
+--
+ALTER TABLE `audit_log`
+  ADD CONSTRAINT `fk_audit_usuario` FOREIGN KEY (`usuario_id`) REFERENCES `usuarios` (`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+
+--
 -- Filtros para la tabla `chat_mensajes`
 --
 ALTER TABLE `chat_mensajes`
@@ -391,9 +436,3 @@ COMMIT;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
-
-
-ALTER TABLE chat_mensajes
-  ADD COLUMN archivado_cliente   TINYINT(1) NOT NULL DEFAULT 0,
-  ADD COLUMN archivado_proveedor TINYINT(1) NOT NULL DEFAULT 0;
-  
