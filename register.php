@@ -9,7 +9,7 @@ $all_categorias = getCategorias($conn);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Servi-Job — Crear Cuenta</title>
-    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="fonts/fonts.css" rel="stylesheet">
     <style>
         :root {
             --navy: #0f2057;

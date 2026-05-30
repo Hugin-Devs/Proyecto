@@ -1,9 +1,14 @@
 -- ============================================================
 --  SERVI-JOB — Migración v2.5: Tabla de Auditoría + Suspensión
---  Ejecutar UNA SOLA VEZ sobre la BD service_libre
+--  INSTRUCCIONES:
+--    1. Primero importa el dump principal de la BD (service_libre).
+--    2. Luego ejecuta este archivo.
+--    Es seguro ejecutarlo múltiples veces (idempotente).
 -- ============================================================
 
--- Tabla de log de auditoría
+SET FOREIGN_KEY_CHECKS = 0;
+
+-- ── 1. TABLA AUDIT_LOG ──────────────────────────────────────
 CREATE TABLE IF NOT EXISTS `audit_log` (
   `id`          INT UNSIGNED  NOT NULL AUTO_INCREMENT,
   `usuario_id`  INT UNSIGNED      NULL COMMENT 'NULL si es acción del sistema',
@@ -22,8 +27,10 @@ CREATE TABLE IF NOT EXISTS `audit_log` (
     ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Campo suspensión reversible en usuarios
+-- ── 2. COLUMNA suspendido_at EN usuarios (solo si no existe) ─
 ALTER TABLE `usuarios`
-  ADD COLUMN `suspendido_at` DATETIME NULL DEFAULT NULL
+  ADD COLUMN IF NOT EXISTS `suspendido_at` DATETIME NULL DEFAULT NULL
     COMMENT 'NULL = activo, fecha = suspendido desde esa fecha'
   AFTER `deleted_at`;
+
+SET FOREIGN_KEY_CHECKS = 1;

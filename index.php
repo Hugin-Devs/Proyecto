@@ -124,7 +124,7 @@ if (isset($_GET['err'])) { $msg_accion = '✗ Ocurrió un error o la contraseña
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Servi-Job — Panel de Servicios</title>
-    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="fonts/fonts.css" rel="stylesheet">
     <link rel="stylesheet" href="style_backend.css">
     <style>
         :root {
