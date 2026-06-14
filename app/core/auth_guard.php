@@ -8,14 +8,20 @@ header('Pragma: no-cache');
 
 // Construir la URL base del proyecto (ej: /Proyecto o /)
 function _base_url(): string {
-    $script = $_SERVER['SCRIPT_NAME'] ?? '';
-    // Subir hasta la raíz del proyecto (donde está index.php)
-    // La raíz es el directorio que contiene index.php, login.php, etc.
-    // Detectamos la raíz buscando cuántos niveles está el archivo actual del root
-    $root = dirname(__DIR__, 2); // app/core -> app -> raíz del proyecto
-    $doc_root = $_SERVER['DOCUMENT_ROOT'] ?? '';
-    $base = str_replace($doc_root, '', $root);
-    return rtrim(str_replace('\\', '/', $base), '/');
+    // Normalizar barras tanto en la ruta del proyecto como en el DOCUMENT_ROOT
+    $root = str_replace('\\', '/', dirname(__DIR__, 2));
+    $doc_root = str_replace('\\', '/', rtrim($_SERVER['DOCUMENT_ROOT'] ?? '', '/\\'));
+    
+    // En Windows las letras de unidad (C:) pueden variar en case.
+    // Comparamos en minúsculas para encontrar el prefijo correcto.
+    if (strpos(strtolower($root), strtolower($doc_root)) === 0) {
+        $base = substr($root, strlen($doc_root));
+    } else {
+        // Fallback básico
+        $base = str_replace($doc_root, '', $root);
+    }
+    
+    return rtrim($base, '/');
 }
 
 // Verificar sesión válida con datos reales
