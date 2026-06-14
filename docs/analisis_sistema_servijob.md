@@ -179,42 +179,46 @@
 
 ```mermaid
 flowchart TD
-    A[Visitante] --> B[home.php — Landing]
-    B --> C[login.php — Login Unificado]
-    B --> D[register.php — Registro]
+    A([Visitante]) --> B[home.php]
+    B --> C[login.php]
+    B --> D[register.php]
     C --> E[auth_login.php]
     D --> F[auth_register.php]
-    E --> G{¿Rol?}
+    E --> G{Rol del usuario}
     F --> G
 
-    G -->|cliente| H["index.php — Panel Cliente (Sidebar)"]
-    G -->|proveedor| I[proveedor_panel.php — Panel Proveedor]
-    G -->|admin| J[admin_panel.php — Panel Admin]
+    G -->|cliente| H[index.php - Panel Cliente]
+    G -->|proveedor| I[proveedor_panel.php]
+    G -->|admin| J[admin_panel.php]
 
-    H --> H1[🔍 Tab: Explorar Servicios]
-    H --> H2[💬 Tab: Mis Chats]
-    H --> H3[🤝 Tab: Mis Contrataciones]
-    H --> H4[👤 Tab: Mi Perfil]
+    subgraph CLIENTE
+        H --> H1[Explorar Servicios]
+        H --> H2[Mis Chats]
+        H --> H3[Mis Contrataciones]
+        H --> H4[Mi Perfil]
+        H1 --> H1a[Modal de Servicio]
+        H3 --> H3a[Ver valoracion propia]
+    end
 
-    H1 --> H1a["Modal servicio (2 columnas)\nInfo servicio | Reseñas con scroll"]
-    H3 --> H3a["Ver valoración y comentario\npropios por contratación"]
+    subgraph PROVEEDOR
+        I --> I1[Mis Servicios]
+        I --> I2[Mis Chats]
+        I --> I3[Contrataciones]
+        I --> I4[Mi Perfil]
+        I --> I5[Modo Cliente]
+        I1 --> I1a[Tarjetas con metricas]
+        I3 --> I3a[Vista Maestro]
+        I3a --> I3b[Vista Detalle]
+        I5 --> I5a[Volver a Modo Proveedor]
+    end
 
-    I --> I1[📋 Tab: Mis Servicios]
-    I --> I2[💬 Tab: Mis Chats]
-    I --> I3[🤝 Tab: Contrataciones — Maestro/Detalle]
-    I --> I4[👤 Tab: Mi Perfil]
-    I --> I5["🔍 Modo Cliente → index.php"]
-
-    I1 --> I1a["Tarjeta con métricas propias\n(total, pendientes, valoración media)"]
-    I3 --> I3a["Vista Maestro: tarjetas por servicio"]
-    I3a --> I3b["Vista Detalle: contrataciones del servicio\n(acepar/rechazar/completar + ver valoración)"]
-    I5 --> I5a["index.php con botón Volver a Modo Proveedor"]
-    I5a --> I5b["Servicios propios: botones contactar/contratar ocultos"]
-
-    J --> J1[Gestión de Usuarios]
-    J --> J2[Verificaciones]
-    J --> J3[Gestión de Servicios]
+    subgraph ADMIN
+        J --> J1[Usuarios]
+        J --> J2[Verificaciones]
+        J --> J3[Servicios]
+    end
 ```
+
 
 ### Rol `cliente`
 - Accede a `index.php` con layout de **sidebar y 4 pestañas**

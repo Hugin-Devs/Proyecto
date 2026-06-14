@@ -11,6 +11,25 @@ files_to_export = [
 with open('docs/analisis_export.html', 'r', encoding='utf-8') as f:
     export_html = f.read()
 
+# Asegurar que siempre se usen las rutas locales correctas (docs/ -> ../public/libs/)
+export_html = export_html.replace(
+    '<script src="libs/mermaid.min.js"></script>',
+    '<script src="../public/libs/mermaid.min.js"></script>'
+)
+export_html = export_html.replace(
+    '<script src="libs/panzoom.min.js"></script>',
+    '<script src="../public/libs/panzoom.min.js"></script>'
+)
+# Por si el archivo ya tuviera un CDN previo, también normalizarlo
+export_html = export_html.replace(
+    '<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>',
+    '<script src="../public/libs/mermaid.min.js"></script>'
+)
+export_html = export_html.replace(
+    '<script src="https://cdn.jsdelivr.net/npm/panzoom@9/dist/panzoom.min.js"></script>',
+    '<script src="../public/libs/panzoom.min.js"></script>'
+)
+
 head = export_html[:export_html.find('<body>')+6]
 tail = export_html[export_html.find('<script>'):]
 
