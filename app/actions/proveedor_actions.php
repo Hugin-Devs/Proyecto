@@ -13,16 +13,34 @@ $action = $_POST['action'] ?? '';
 
 // ── Helper: subir imagen ──────────────────────────────────
 function subirImagen(string $campo): ?string {
-    if (empty($_FILES[$campo]['name'])) return null;
+    if (empty($_FILES[$campo]['name'])) {
+        error_log("subirImagen: Archivo vacio para campo $campo");
+        return null;
+    }
     $file    = $_FILES[$campo];
     $ext     = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
     $allowed = ['jpg','jpeg','png','webp','gif'];
-    if (!in_array($ext, $allowed))        return null;
-    if ($file['size'] > 2 * 1024 * 1024) return null;
+    if (!in_array($ext, $allowed)) {
+        error_log("subirImagen: Extension no permitida ($ext)");
+        return null;
+    }
+    if ($file['size'] > 2 * 1024 * 1024) {
+        error_log("subirImagen: Tamano excede 2MB (" . $file['size'] . " bytes)");
+        return null;
+    }
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        error_log("subirImagen: Error de subida PHP codigo " . $file['error']);
+        return null;
+    }
+    
     $carpeta = dirname(__DIR__, 2) . '/uploads/';
     if (!is_dir($carpeta)) mkdir($carpeta, 0755, true);
     $nombre = uniqid('srv_', true) . '.' . $ext;
-    move_uploaded_file($file['tmp_name'], $carpeta . $nombre);
+    
+    if (!move_uploaded_file($file['tmp_name'], $carpeta . $nombre)) {
+        error_log("subirImagen: move_uploaded_file fallo. tmp_name=" . $file['tmp_name'] . ", dest=" . $carpeta . $nombre);
+        return null;
+    }
     return $nombre;
 }
 

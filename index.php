@@ -14,6 +14,7 @@ require_once __DIR__ . '/app/core/auth_guard.php';
 
 // Redirección de admins: Si un admin intenta acceder al index (salvo con view=public),
 // es redirigido a su panel correspondiente. Se permite acceso a proveedores para el "Modo Cliente".
+if (esAdmin() && ($_GET['view'] ?? '') !== 'public') {
     header('Location: app/pages/admin_panel.php');
     exit;
 }
