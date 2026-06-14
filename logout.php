@@ -1,6 +1,6 @@
 <?php
 session_start();
-include __DIR__ . '/db.php';
+include __DIR__ . '/app/core/db.php';
 audit('logout', $_SESSION['user_id'] ?? null, 'usuarios', $_SESSION['user_id'] ?? null, "Logout");
 session_unset();
 session_destroy();

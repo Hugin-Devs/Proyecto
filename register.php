@@ -1,5 +1,5 @@
 <?php
-include __DIR__ . '/get_lists.php';
+include __DIR__ . '/app/api/get_lists.php';
 $all_municipios = getMunicipios($conn);
 $all_categorias = getCategorias($conn);
 ?>
@@ -9,210 +9,8 @@ $all_categorias = getCategorias($conn);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Servi-Job — Crear Cuenta</title>
-    <link href="fonts/fonts.css" rel="stylesheet">
-    <style>
-        :root {
-            --navy: #0f2057;
-            --blue: #1a3a8f;
-            --blue-mid: #2d5be3;
-            --blue-light: #3d7af5;
-            --orange: #f5820d;
-            --orange-dark: #d96a00;
-            --white: #ffffff;
-            --text-muted: #8898bb;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'DM Sans', sans-serif;
-            background: var(--navy);
-            color: var(--white);
-            min-height: 100vh;
-            display: flex;
-            overflow-x: hidden;
-        }
-
-        /* LEFT VISUAL */
-        .panel-left {
-            flex: 1;
-            background: linear-gradient(135deg, #0a1640 0%, #0f2057 40%, #1a3a8f 100%);
-            display: flex; flex-direction: column;
-            justify-content: center; align-items: center;
-            padding: 60px;
-            position: relative; overflow: hidden;
-        }
-        .panel-left::before {
-            content: ''; position: absolute; inset: 0;
-            background:
-                radial-gradient(ellipse 60% 50% at 70% 20%, rgba(245,130,13,0.2) 0%, transparent 55%),
-                radial-gradient(ellipse 70% 60% at 20% 80%, rgba(45,91,227,0.4) 0%, transparent 60%);
-        }
-        .gear-bg {
-            position: absolute; font-size: 280px; opacity: 0.04;
-            top: 50%; left: 50%; transform: translate(-50%,-50%);
-            animation: slowspin 30s linear infinite;
-        }
-        @keyframes slowspin { from{transform:translate(-50%,-50%) rotate(0deg)} to{transform:translate(-50%,-50%) rotate(360deg)} }
-
-        .panel-content { position: relative; z-index: 1; text-align: center; max-width: 400px; }
-        .panel-logo {
-            display: inline-flex; align-items: center; gap: 12px; margin-bottom: 48px;
-        }
-        .panel-logo-icon {
-            width: 56px; height: 56px;
-            background: linear-gradient(135deg, var(--blue-mid), var(--orange));
-            border-radius: 14px; display: flex; align-items: center; justify-content: center;
-            font-size: 28px;
-            box-shadow: 0 0 30px rgba(45,91,227,0.5);
-        }
-        .panel-logo-text {
-            font-family: 'Rajdhani', sans-serif; font-size: 36px; font-weight: 700;
-        }
-        .panel-logo-text span { color: var(--orange); }
-
-        .steps { display: flex; flex-direction: column; gap: 0; width: 100%; text-align: left; }
-        .step {
-            display: flex; gap: 16px; align-items: flex-start;
-            padding: 20px 0; position: relative;
-        }
-        .step:not(:last-child)::after {
-            content: ''; position: absolute; left: 19px; top: 56px;
-            width: 2px; height: calc(100% - 36px);
-            background: rgba(255,255,255,0.1);
-        }
-        .step-num {
-            width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
-            background: rgba(45,91,227,0.3);
-            border: 2px solid rgba(45,91,227,0.5);
-            display: flex; align-items: center; justify-content: center;
-            font-family: 'Rajdhani', sans-serif; font-size: 16px; font-weight: 700;
-            color: var(--blue-light);
-        }
-        .step-num.orange {
-            background: rgba(245,130,13,0.2);
-            border-color: rgba(245,130,13,0.4);
-            color: var(--orange);
-        }
-        .step-info h4 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
-        .step-info p { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
-
-        /* RIGHT FORM */
-        .panel-right {
-            width: 520px; flex-shrink: 0;
-            background: #0a1640;
-            display: flex; align-items: flex-start; justify-content: center;
-            padding: 50px;
-            border-left: 1px solid rgba(255,255,255,0.07);
-            overflow-y: auto; min-height: 100vh;
-        }
-
-        .auth-box { width: 100%; padding: 10px 0; }
-        .back-home {
-            display: inline-flex; align-items: center; gap: 6px;
-            color: var(--text-muted); font-size: 13px; text-decoration: none;
-            margin-bottom: 30px; transition: color 0.2s;
-        }
-        .back-home:hover { color: white; }
-        .auth-box h2 {
-            font-family: 'Rajdhani', sans-serif;
-            font-size: 30px; font-weight: 700; margin-bottom: 6px;
-        }
-        .auth-box .subtitle { color: var(--text-muted); font-size: 14px; margin-bottom: 30px; }
-
-        .role-switch {
-            display: flex; gap: 0; margin-bottom: 28px;
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 10px; padding: 4px;
-        }
-        .role-btn {
-            flex: 1; padding: 10px 16px;
-            background: transparent; border: none;
-            color: var(--text-muted); font-size: 13px; font-weight: 500;
-            cursor: pointer; border-radius: 7px; transition: all 0.2s;
-            font-family: 'DM Sans', sans-serif;
-        }
-        .role-btn.active {
-            background: var(--blue-mid); color: white;
-            box-shadow: 0 0 20px rgba(45,91,227,0.4);
-        }
-
-        .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-        .form-group { margin-bottom: 16px; }
-        .form-group label {
-            display: block; font-size: 13px; font-weight: 500;
-            color: rgba(255,255,255,0.6); margin-bottom: 7px;
-        }
-        .input-wrap { position: relative; }
-        .input-icon {
-            position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
-            font-size: 15px; pointer-events: none;
-        }
-        .form-group input, .form-group select {
-            width: 100%; padding: 12px 14px 12px 40px;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 9px; color: white; font-size: 14px; outline: none;
-            transition: all 0.2s; font-family: 'DM Sans', sans-serif;
-        }
-        .form-group select { padding-left: 14px; }
-        .form-group input:focus, .form-group select:focus {
-            border-color: var(--blue-light);
-            background: rgba(61,122,245,0.07);
-            box-shadow: 0 0 0 3px rgba(61,122,245,0.15);
-        }
-        .form-group select option {
-            background: var(--navy);
-            color: white;
-        }
-        .form-group input::placeholder { color: rgba(255,255,255,0.2); }
-
-        .section-divider {
-            font-size: 11px; font-weight: 700; letter-spacing: 1px;
-            text-transform: uppercase; color: var(--text-muted);
-            display: flex; align-items: center; gap: 12px;
-            margin: 20px 0 16px;
-        }
-        .section-divider::before, .section-divider::after {
-            content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.07);
-        }
-
-        .terms {
-            display: flex; align-items: flex-start; gap: 10px;
-            font-size: 13px; color: var(--text-muted);
-            margin: 20px 0 22px; cursor: pointer;
-        }
-        .terms input { accent-color: var(--orange); margin-top: 2px; flex-shrink: 0; }
-        .terms a { color: var(--orange); text-decoration: none; }
-
-        .btn-submit {
-            width: 100%; padding: 14px;
-            background: linear-gradient(135deg, var(--orange) 0%, var(--orange-dark) 100%);
-            border: none; border-radius: 10px;
-            color: white; font-size: 15px; font-weight: 600; cursor: pointer;
-            transition: all 0.2s; font-family: 'DM Sans', sans-serif;
-            box-shadow: 0 0 30px rgba(245,130,13,0.35);
-        }
-        .btn-submit:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 0 45px rgba(245,130,13,0.5);
-        }
-
-        .auth-footer {
-            text-align: center; margin-top: 24px;
-            font-size: 14px; color: var(--text-muted);
-        }
-        .auth-footer a { color: var(--blue-light); text-decoration: none; font-weight: 600; }
-
-        /* Business fields hidden by default */
-        #business-fields { display: none; }
-
-        @media (max-width: 900px) {
-            body { flex-direction: column; }
-            .panel-left { display: none; }
-            .panel-right { width: 100%; padding: 36px 24px; }
-            .form-row-2 { grid-template-columns: 1fr; }
-        }
-    </style>
+    <link href="public/css/fonts.css" rel="stylesheet">
+    <link rel="stylesheet" href="public/css/register.css">
 </head>
 <body>
 
@@ -276,7 +74,7 @@ $all_categorias = getCategorias($conn);
             <button type="button" class="role-btn" id="btnProveedor" onclick="setRole('proveedor')">🔧 Ofrezco Servicios</button>
         </div>
 
-        <form action="auth_register.php" method="POST">
+        <form action="app/auth/auth_register.php" method="POST">
             <input type="hidden" name="role" id="roleInput" value="cliente">
 
             <div class="section-divider">Datos personales</div>

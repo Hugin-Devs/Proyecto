@@ -1,11 +1,11 @@
 <?php
-require_once __DIR__ . '/auth_guard.php';
+require_once __DIR__ . '/app/core/auth_guard.php';
 // Se permite el acceso a proveedores para el "Modo Cliente"
 if (($_SESSION['user_role'] ?? '') === 'admin' && ($_GET['view'] ?? '') !== 'public') {
-    header('Location: admin_panel.php');
+    header('Location: app/pages/admin_panel.php');
     exit;
 }
-include __DIR__ . '/get_lists.php';
+include __DIR__ . '/app/api/get_lists.php';
 $all_municipios = getMunicipios($conn);
 $all_categorias = getCategorias($conn);
 
@@ -121,571 +121,9 @@ if (isset($_GET['err'])) { $msg_accion = '✗ Ocurrió un error o la contraseña
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Servi-Job — Panel de Servicios</title>
-    <link href="fonts/fonts.css" rel="stylesheet">
-    <link rel="stylesheet" href="style_backend.css">
-    <style>
-        :root {
-            --navy: #0f2057; --blue: #1a3a8f; --blue-mid: #2d5be3; --blue-light: #3d7af5;
-            --orange: #f5820d; --orange-dark: #d96a00; --white: #ffffff; --off-white: #f4f6fc;
-            --text-muted: #8898bb; --border: rgba(255,255,255,0.08); --card-bg: rgba(255,255,255,0.04);
-            --radius: 12px; --bg: #0c1840;
-        }
-        body { margin:0; padding:0; box-sizing:border-box; background: var(--bg); color: var(--white); min-height: 100vh; display: flex; font-family: 'DM Sans', sans-serif; }
-        a { text-decoration: none; color: inherit; }
-
-        /* SIDEBAR */
-        .sidebar { width: 260px; background: var(--navy); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 24px 0; flex-shrink: 0; }
-        .logo { font-family: 'Rajdhani', sans-serif; font-size: 24px; font-weight: 700; padding: 0 24px 32px; border-bottom: 1px solid var(--border); margin-bottom: 24px; display:flex; align-items:center; gap:8px;}
-        .logo .logo-text { color: white; }
-        .logo .logo-text span { color: var(--orange); }
-        .nav-item { padding: 14px 24px; color: var(--text-muted); font-size: 15px; font-weight: 500; display: flex; align-items: center; gap: 12px; transition: all 0.2s; cursor: pointer; }
-        .nav-item:hover, .nav-item.active { background: rgba(61,122,245,0.1); color: var(--blue-light); border-right: 3px solid var(--blue-light); }
-        .nav-badge { background: var(--orange); color: white; font-size: 11px; padding: 2px 6px; border-radius: 10px; margin-left: auto; }
-        
-        .sidebar-bottom { margin-top: auto; padding: 24px; border-top: 1px solid var(--border); }
-        .user-info { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
-        .user-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--blue-mid), var(--blue-light)); display: flex; align-items: center; justify-content: center; font-weight: 700; }
-        .btn-logout { display: block; width: 100%; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,100,100,0.3); background: rgba(255,100,100,0.1); color: #ff8a8a; text-align: center; font-size: 14px; transition: all 0.2s; }
-        .btn-logout:hover { background: rgba(255,100,100,0.2); }
-
-        /* MAIN CONTENT */
-        .main-content { flex: 1; overflow-y: auto; height: 100vh; display: flex; flex-direction: column; }
-        .tab-content { display: none; flex: 1; padding: 40px; }
-        .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* BARRA STICKY BÚSQUEDA + FILTROS */
-        .explorar-sticky {
-            position: sticky;
-            top: 0;
-            z-index: 40;
-            background: rgba(12, 24, 64, 0.85);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border-bottom: 1px solid var(--border);
-            padding: 14px 40px;
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 14px;
-        }
-        .explorar-sticky .search-bar {
-            flex: 1;
-            min-width: 200px;
-            max-width: 420px;
-        }
-        .explorar-sticky .filters-inline {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-        .explorar-sticky .filters-inline select {
-            padding: 9px 14px;
-            border-radius: 8px;
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.12);
-            color: #fff;
-            font-size: 13px;
-            outline: none;
-            cursor: pointer;
-            font-family: 'DM Sans', sans-serif;
-            transition: border-color 0.2s;
-        }
-        .explorar-sticky .filters-inline select:focus { border-color: var(--blue-light); }
-        .explorar-sticky .filters-inline select option { background: #1a3a8f; color: #fff; }
-        .explorar-sticky .filters-inline .btn-filter {
-            padding: 9px 18px;
-            border-radius: 8px;
-            background: var(--orange);
-            border: none;
-            color: white;
-            font-weight: 600;
-            font-size: 13px;
-            cursor: pointer;
-            font-family: 'DM Sans', sans-serif;
-            transition: background 0.2s;
-        }
-        .explorar-sticky .filters-inline .btn-filter:hover { background: var(--orange-dark); }
-
-        /* FAB: Volver arriba */
-        #scrollTopBtn {
-            display: none;
-            position: fixed;
-            bottom: 100px;
-            right: 28px;
-            width: 46px;
-            height: 46px;
-            border-radius: 50%;
-            border: 1px solid rgba(255,255,255,0.15);
-            background: rgba(15, 32, 87, 0.9);
-            backdrop-filter: blur(10px);
-            color: var(--text-muted);
-            font-size: 18px;
-            cursor: pointer;
-            z-index: 498;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-            transition: all 0.2s;
-        }
-        #scrollTopBtn.visible { display: flex; animation: fadeIn 0.2s ease; }
-        #scrollTopBtn:hover { background: rgba(45,91,227,0.4); border-color: var(--blue-light); color: white; transform: translateY(-2px); }
-
-        /* FORM, TOAST, EXTRA STYLES FOR PROFILE/CHATS */
-        .toast { padding:14px 20px; border-radius:10px; margin-bottom:24px; font-size:14px; font-weight:500; display:flex; align-items:center; gap:10px; }
-        .toast.success { background:rgba(74,222,128,0.1); border:1px solid rgba(74,222,128,0.3); color:#4ade80; }
-        .toast.error   { background:rgba(239,68,68,0.1);  border:1px solid rgba(239,68,68,0.3);  color:#f87171; }
-        .field { margin-bottom:18px; }
-        .field label { display:block; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); margin-bottom:8px; }
-        .field input { width:100%; max-width:400px; padding:11px 14px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); border-radius:9px; color:var(--white); font-size:14px; outline:none; font-family:'DM Sans',sans-serif; transition: border-color 0.2s; }
-        .field input:focus { border-color: var(--blue-light); }
-        .btn-primary { padding:11px 22px; border-radius:8px; border:none; font-size:14px; font-weight:600; cursor:pointer; font-family:'DM Sans',sans-serif; background:linear-gradient(135deg, var(--blue-mid), var(--blue-light)); color:white; box-shadow:0 0 20px rgba(45,91,227,0.3); transition:all 0.2s;}
-        .btn-primary:hover { transform: translateY(-2px); box-shadow:0 0 30px rgba(45,91,227,0.5); }
-
-        /* CHATS LIST STYLES */
-        .conv-list { display:flex; flex-direction:column; gap:10px; max-width: 800px; }
-        .conv-item { background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:16px 20px; display:flex; align-items:center; gap:16px; cursor:pointer; transition:all .2s; }
-        .conv-item:hover { border-color:rgba(61,122,245,0.4); background:rgba(61,122,245,0.05); transform:translateX(3px); }
-        .conv-item.unread { border-color:rgba(245,130,13,0.35); }
-        .conv-avatar { width:44px; height:44px; border-radius:50%; flex-shrink:0; background:linear-gradient(135deg,#2d5be3,#14a87a); display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:700; color:#fff; }
-        .conv-info { flex:1; min-width:0; }
-        .conv-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:3px; }
-        .conv-name { font-weight:700; font-size:14px; color:#fff; }
-        .conv-time { font-size:11px; color:var(--text-muted); }
-        .conv-service { font-size:12px; color:var(--blue-light); margin-bottom:4px; }
-        .conv-preview { font-size:13px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .conv-unread-badge { background:var(--orange); color:#fff; font-size:11px; font-weight:700; min-width:20px; height:20px; border-radius:10px; display:flex; align-items:center; justify-content:center; padding:0 5px; flex-shrink:0; }
-        .conv-item.archivado { opacity: 0.6; }
-        .conv-item.archivado .conv-name { color: var(--text-muted); }
-        .conv-arch-btn {
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.1);
-            color: var(--text-muted);
-            font-size: 11px; font-weight: 600;
-            padding: 4px 10px; border-radius: 6px;
-            cursor: pointer; flex-shrink: 0;
-            transition: all .2s; white-space: nowrap;
-        }
-        .conv-arch-btn:hover { background: rgba(245,130,13,0.15); border-color: rgba(245,130,13,0.4); color: var(--orange); }
-        .conv-arch-btn.desarchivar { background: rgba(61,122,245,0.1); border-color: rgba(61,122,245,0.3); color: var(--blue-light); }
-        .conv-arch-btn.desarchivar:hover { background: rgba(61,122,245,0.2); }
-        /* Tabs de filtro activo/archivado */
-        .chat-tabs {
-            display: flex; gap: 8px; margin-bottom: 20px;
-        }
-        .chat-tab-btn {
-            padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 600;
-            border: 1px solid var(--border); background: var(--card-bg);
-            color: var(--text-muted); cursor: pointer; transition: all .2s;
-            font-family: 'DM Sans', sans-serif; display: flex; align-items: center; gap: 6px;
-        }
-        .chat-tab-btn.active { background: rgba(61,122,245,0.15); border-color: rgba(61,122,245,0.4); color: var(--blue-light); }
-        .chat-tab-count { background: rgba(255,255,255,0.1); font-size:10px; padding:1px 6px; border-radius:8px; }
-
-        .card-img { width:100%; height:160px; overflow:hidden; border-radius:10px 10px 0 0; }
-        .card-img img { width:100%; height:100%; object-fit:cover; }
-
-        /* ── Modal servicio ── */
-        #modalServicio {
-            display:none; position:fixed; inset:0; z-index:200;
-            background:rgba(10,20,60,0.88); backdrop-filter:blur(10px);
-            align-items:center; justify-content:center; padding:20px;
-        }
-        #modalServicio.open { display:flex; }
-        .srv-modal-box {
-            background:#0d1e4a; border:1px solid rgba(255,255,255,0.1);
-            border-radius:18px; width:100%; max-width:850px;
-            overflow:hidden; position:relative;
-            display: flex; flex-direction: row; align-items: stretch;
-            max-height: 90vh;
-            animation:slideUp .3s ease;
-            box-shadow:0 30px 80px rgba(0,0,0,0.5);
-        }
-        @media(max-width:768px) {
-            .srv-modal-box { flex-direction: column; overflow-y: auto; }
-        }
-        .srv-modal-left { flex: 1.2; overflow-y: auto; border-right: 1px solid rgba(255,255,255,0.1); display:flex; flex-direction:column; }
-        .srv-modal-right { flex: 1; padding:24px; display:flex; flex-direction:column; background:rgba(255,255,255,0.02); }
-        @media(max-width:768px) {
-            .srv-modal-left { border-right: none; overflow-y: visible; }
-            .srv-modal-right { border-top: 1px solid rgba(255,255,255,0.1); padding: 20px; }
-        }
-        @keyframes slideUp { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
-        .srv-modal-img { width:100%; height:240px; object-fit:cover; display:block; }
-        .srv-modal-no-img {
-            width:100%; height:160px;
-            background:linear-gradient(135deg,#1a3a8f,#0f2057);
-            display:flex; align-items:center; justify-content:center; font-size:52px;
-        }
-        .srv-modal-body { padding:28px; }
-        .srv-modal-badge {
-            display:inline-block; padding:4px 12px; border-radius:20px;
-            background:rgba(61,122,245,0.15); border:1px solid rgba(61,122,245,0.3);
-            color:#3d7af5; font-size:12px; font-weight:600; margin-bottom:12px;
-        }
-        .srv-modal-badge.dest {
-            background:rgba(245,130,13,0.15); border-color:rgba(245,130,13,0.35); color:#f5820d;
-        }
-        .srv-modal-title { font-family:'Rajdhani',sans-serif; font-size:26px; font-weight:700; color:#fff; margin-bottom:8px; }
-        .srv-modal-desc { color:#8898bb; font-size:14px; line-height:1.6; margin-bottom:18px; white-space:pre-line; }
-        .srv-modal-meta { display:flex; gap:16px; margin-bottom:22px; flex-wrap:wrap; }
-        .srv-meta-item { display:flex; align-items:center; gap:6px; font-size:13px; color:rgba(255,255,255,0.6); }
-        .srv-modal-price { font-family:'Rajdhani',sans-serif; font-size:32px; font-weight:700; color:#fff; margin-bottom:22px; }
-        .srv-modal-price small { font-size:16px; color:#8898bb; font-family:'DM Sans',sans-serif; }
-        .srv-modal-close {
-            position:absolute; top:14px; right:16px;
-            background:rgba(0,0,0,0.4); border:none; color:#fff;
-            width:34px; height:34px; border-radius:50%;
-            font-size:16px; cursor:pointer; z-index:10;
-            display:flex; align-items:center; justify-content:center;
-        }
-        .btn-llamar {
-            width:100%; padding:14px;
-            background:linear-gradient(135deg,#2d5be3,#3d7af5);
-            border:none; border-radius:10px; color:#fff;
-            font-size:15px; font-weight:600; cursor:pointer;
-            font-family:'DM Sans',sans-serif; transition:all .2s;
-            margin-bottom: 10px;
-        }
-        .btn-llamar:hover { transform:translateY(-2px); box-shadow:0 0 30px rgba(61,122,245,0.5); }
-
-        /* ── Botón Chat en modal servicio ── */
-        .btn-abrir-chat {
-            width:100%; padding:13px;
-            background:linear-gradient(135deg,#0f7c5a,#14a87a);
-            border:none; border-radius:10px; color:#fff;
-            font-size:15px; font-weight:600; cursor:pointer;
-            font-family:'DM Sans',sans-serif; transition:all .2s;
-        }
-        .btn-abrir-chat:hover { transform:translateY(-2px); box-shadow:0 0 30px rgba(20,168,122,0.5); }
-
-        /* ── Sección de reseñas en modal ── */
-        .reviews-heading {
-            font-family:'Rajdhani',sans-serif; font-size:16px; font-weight:700;
-            color:#fff; margin-bottom:12px; display:flex; align-items:center; gap:8px;
-        }
-        #srvReviewsList::-webkit-scrollbar { width:4px; }
-        #srvReviewsList::-webkit-scrollbar-track { background:rgba(255,255,255,0.03); border-radius:2px; }
-        #srvReviewsList::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.15); border-radius:2px; }
-        #srvReviewsList::-webkit-scrollbar-thumb:hover { background:rgba(255,255,255,0.3); }
-
-        /* ── Filtros en fila ── */
-        .filters {
-            display:flex; align-items:center; gap:20px;
-            flex-wrap:wrap; margin-bottom:28px;
-        }
-        .filters label {
-            font-size:12px; font-weight:700; text-transform:uppercase;
-            letter-spacing:.6px; color:#8898bb; white-space:nowrap;
-        }
-        .filters select {
-            padding:9px 16px; border-radius:8px;
-            background:#1a3a8f; border:1px solid rgba(255,255,255,0.2);
-            color:#fff; font-size:14px; outline:none; cursor:pointer;
-            font-family:'DM Sans',sans-serif;
-        }
-        .filters select option { background:#1a3a8f; color:#fff; }
-
-        /* ── Paginación ── */
-        .pagination {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-top: 40px;
-            margin-bottom: 20px;
-        }
-        .btn-page {
-            padding: 10px 16px;
-            border-radius: 8px;
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            color: var(--white);
-            text-decoration: none;
-            font-size: 14px;
-            transition: all 0.2s;
-        }
-        .btn-page:hover {
-            border-color: var(--blue-light);
-            background: rgba(61,122,245,0.1);
-        }
-        .btn-page.active {
-            background: var(--blue-mid);
-            border-color: var(--blue-light);
-            font-weight: 600;
-        }
-        .btn-page.disabled {
-            opacity: 0.4;
-            pointer-events: none;
-        }
-        .btn-filter {
-            padding: 9px 20px;
-            border-radius: 8px;
-            background: var(--orange);
-            border: none;
-            color: white;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .btn-filter:hover { background: var(--orange-dark); }
-
-        /* ══════════════════════════════════════════════════════
-           MÓDULO DE CHAT
-        ══════════════════════════════════════════════════════ */
-
-        /* Ventana flotante del chat */
-        #chatWindow {
-            display: none;
-            position: fixed;
-            bottom: 28px; right: 28px;
-            width: 370px; height: 520px;
-            background: #0a1640;
-            border: 1px solid rgba(61,122,245,0.35);
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(61,122,245,0.1);
-            z-index: 500;
-            flex-direction: column;
-            overflow: hidden;
-            animation: chatEntrar .25s ease;
-        }
-        #chatWindow.open { display: flex; }
-        @keyframes chatEntrar {
-            from { opacity:0; transform: translateY(20px) scale(.97); }
-            to   { opacity:1; transform: translateY(0) scale(1); }
-        }
-
-        /* Header del chat */
-        .chat-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 16px 18px;
-            background: linear-gradient(135deg, #1a3a8f, #0f2057);
-            border-bottom: 1px solid rgba(255,255,255,0.08);
-            flex-shrink: 0;
-        }
-        .chat-avatar {
-            width: 38px; height: 38px;
-            border-radius: 50%;
-            background: linear-gradient(135deg,#2d5be3,#14a87a);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 18px; flex-shrink: 0;
-        }
-        .chat-header-info { flex: 1; min-width: 0; }
-        .chat-header-name {
-            font-weight: 700; font-size: 14px;
-            color: #fff;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
-        .chat-header-sub {
-            font-size: 11px; color: #8898bb; margin-top: 1px;
-        }
-        .chat-dot-online {
-            width: 8px; height: 8px; border-radius: 50%;
-            background: #14a87a;
-            box-shadow: 0 0 6px #14a87a;
-            flex-shrink: 0;
-        }
-        .chat-close-btn {
-            background: rgba(255,255,255,0.07);
-            border: none; color: #8898bb;
-            width: 30px; height: 30px; border-radius: 8px;
-            font-size: 14px; cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            transition: all .2s; flex-shrink: 0;
-        }
-        .chat-close-btn:hover { background: rgba(255,80,80,0.2); color: #ff6b6b; }
-
-        /* Cuerpo del chat (mensajes) */
-        #chatBody {
-            flex: 1;
-            overflow-y: auto;
-            padding: 16px 14px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            scroll-behavior: smooth;
-        }
-        #chatBody::-webkit-scrollbar { width: 4px; }
-        #chatBody::-webkit-scrollbar-track { background: transparent; }
-        #chatBody::-webkit-scrollbar-thumb { background: rgba(61,122,245,0.3); border-radius: 2px; }
-
-        /* Burbujas */
-        .chat-msg {
-            display: flex;
-            flex-direction: column;
-            max-width: 80%;
-        }
-        .chat-msg.mio  { align-self: flex-end; align-items: flex-end; }
-        .chat-msg.otro { align-self: flex-start; align-items: flex-start; }
-
-        .chat-bubble {
-            padding: 10px 14px;
-            border-radius: 16px;
-            font-size: 13.5px;
-            line-height: 1.5;
-            word-break: break-word;
-        }
-        .chat-msg.mio  .chat-bubble {
-            background: linear-gradient(135deg,#2d5be3,#3d7af5);
-            color: #fff;
-            border-bottom-right-radius: 4px;
-        }
-        .chat-msg.otro .chat-bubble {
-            background: rgba(255,255,255,0.07);
-            border: 1px solid rgba(255,255,255,0.1);
-            color: #d8e0f0;
-            border-bottom-left-radius: 4px;
-        }
-        .chat-time {
-            font-size: 10px;
-            color: #6a7a9b;
-            margin-top: 3px;
-            padding: 0 4px;
-        }
-        .chat-tick { font-size: 10px; color: #3d7af5; margin-left: 4px; }
-
-        /* Empty state */
-        .chat-empty {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: #4a5a7a;
-            font-size: 13px;
-            text-align: center;
-            gap: 10px;
-        }
-        .chat-empty-icon { font-size: 38px; opacity: .6; }
-
-        /* Typing indicator */
-        .chat-typing {
-            display: none;
-            align-self: flex-start;
-            padding: 8px 14px;
-            background: rgba(255,255,255,0.07);
-            border-radius: 14px;
-            font-size: 12px;
-            color: #6a7a9b;
-        }
-        .chat-typing span { animation: blink 1.2s infinite; display:inline-block; }
-        .chat-typing span:nth-child(2) { animation-delay:.2s; }
-        .chat-typing span:nth-child(3) { animation-delay:.4s; }
-        @keyframes blink { 0%,80%,100%{opacity:.2} 40%{opacity:1} }
-
-        /* Footer del chat */
-        .chat-footer {
-            padding: 12px 14px;
-            border-top: 1px solid rgba(255,255,255,0.07);
-            display: flex;
-            align-items: flex-end;
-            gap: 8px;
-            background: #0d1e4a;
-            flex-shrink: 0;
-        }
-        #chatInput {
-            flex: 1;
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.12);
-            border-radius: 12px;
-            padding: 10px 14px;
-            color: #fff;
-            font-size: 13.5px;
-            font-family: 'DM Sans',sans-serif;
-            resize: none;
-            max-height: 100px;
-            outline: none;
-            transition: border-color .2s;
-            line-height: 1.4;
-        }
-        #chatInput::placeholder { color: #4a5a7a; }
-        #chatInput:focus { border-color: rgba(61,122,245,0.5); }
-        #chatSendBtn {
-            width: 40px; height: 40px;
-            background: linear-gradient(135deg,#2d5be3,#3d7af5);
-            border: none; border-radius: 12px;
-            color: #fff; font-size: 17px; cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            transition: all .2s; flex-shrink: 0;
-        }
-        #chatSendBtn:hover { transform: scale(1.08); box-shadow: 0 0 16px rgba(61,122,245,0.5); }
-        #chatSendBtn:disabled { opacity: .4; cursor: default; transform: none; }
-
-        /* Notificación (badge) en botón flotante */
-        #chatFab {
-            display: none;
-            position: fixed; bottom: 28px; right: 28px;
-            width: 56px; height: 56px;
-            background: linear-gradient(135deg,#2d5be3,#3d7af5);
-            border: none; border-radius: 50%;
-            color: #fff; font-size: 24px; cursor: pointer;
-            box-shadow: 0 8px 28px rgba(45,91,227,0.5);
-            z-index: 499;
-            align-items: center; justify-content: center;
-            transition: transform .2s;
-        }
-        #chatFab:hover { transform: scale(1.1); }
-        #chatFab .fab-badge {
-            position: absolute; top: -4px; right: -4px;
-            background: #f5820d; color: #fff;
-            font-size: 10px; font-weight: 700;
-            min-width: 18px; height: 18px;
-            border-radius: 9px; padding: 0 4px;
-            display: flex; align-items: center; justify-content: center;
-            border: 2px solid #0a1640;
-        }
-        /* ── RESPONSIVE MOBILE ── */
-        .mobile-header { display:none; }
-        .sidebar-overlay { display:none; }
-        @media(max-width: 900px) {
-            body { flex-direction: column !important; }
-            .sidebar { 
-                position: fixed; top: 0; left: -260px; bottom: 0; 
-                z-index: 1000; transition: left 0.3s ease;
-                width: 260px;
-            }
-            .sidebar.open { left: 0; }
-            .sidebar-overlay {
-                display: none; position: fixed; inset: 0;
-                background: rgba(10,20,60,0.8); z-index: 999;
-                backdrop-filter: blur(4px);
-            }
-            .sidebar-overlay.open { display: block; }
-            .mobile-header {
-                display: flex; align-items: center; justify-content: space-between;
-                padding: 14px 20px; background: var(--navy); border-bottom: 1px solid var(--border);
-                position: sticky; top: 0; z-index: 998;
-                width: 100%; flex-shrink: 0;
-            }
-            .mobile-header-title { font-family: 'Rajdhani', sans-serif; font-size: 20px; font-weight: 700; display:flex; align-items:center; gap:8px; }
-            .mobile-header-title span { color: var(--orange); }
-            .mobile-menu-btn { background: none; border: none; color: white; font-size: 26px; cursor: pointer; line-height: 1; }
-
-            .main-content { width: 100% !important; overflow-x: hidden; padding-top: 0; }
-            .tab-content { padding: 20px 16px; }
-            .explorar-sticky { padding: 14px 16px; }
-            .filters-inline select { width: 100%; margin-bottom: 8px; }
-            .filters-inline button { width: 100%; }
-            /* Chat pantalla completa en móvil */
-            #chatWindow { width: 100% !important; height: 100% !important; bottom: 0; right: 0; left: 0; top: 0; border-radius: 0; z-index: 1100; }
-            /* Botón de cierre más grande */
-            .chat-close-btn {
-                width: 38px !important; height: 38px !important;
-                font-size: 20px !important;
-                background: rgba(255,80,80,0.15) !important;
-                color: #ff6b6b !important;
-                border-radius: 10px !important;
-            }
-            /* Stats-bar wrapper scroll horizontal */
-            .stats-bar-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 28px; }
-            .stats-bar-wrap .stats-bar { min-width: 520px; margin-bottom: 0; }
-            .srv-modal-box { padding: 16px; margin: 10px; width: 100%; max-height: 90vh; border-radius: 10px; }
-            .page-header h1 { font-size: 28px; }
-            .grid-services { grid-template-columns: 1fr !important; }
-        }
-    </style>
+    <link href="public/css/fonts.css" rel="stylesheet">
+    <link rel="stylesheet" href="public/css/style_backend.css">
+    <link rel="stylesheet" href="public/css/index.css">
 </head>
 <body>
 
@@ -729,7 +167,7 @@ if (isset($_GET['err'])) { $msg_accion = '✗ Ocurrió un error o la contraseña
         </a>
         <div style="flex:1"></div>
         <?php if(($_SESSION['user_role'] ?? '') === 'proveedor'): ?>
-        <a href="proveedor_panel.php" class="nav-item" style="border-top: 1px solid rgba(255,255,255,0.05); color: #a5b4fc;">
+        <a href="app/pages/proveedor_panel.php" class="nav-item" style="border-top: 1px solid rgba(255,255,255,0.05); color: #a5b4fc;">
             ⚙️ Volver a Modo Proveedor
         </a>
         <?php endif; ?>
@@ -789,7 +227,7 @@ if (isset($_GET['err'])) { $msg_accion = '✗ Ocurrió un error o la contraseña
                 <section class="results">
                     <h2>Servicios Disponibles</h2>
                     <div class="grid-services" id="servicesGrid">
-                        <?php include __DIR__ . '/logic.php'; ?>
+                        <?php include __DIR__ . '/app/pages/logic.php'; ?>
                     </div>
 
                     <!-- ── PAGINACIÓN ── -->
@@ -1007,7 +445,7 @@ if (isset($_GET['err'])) { $msg_accion = '✗ Ocurrió un error o la contraseña
                 <!-- Seguridad -->
                 <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:var(--radius); padding:24px;">
                     <h2 style="font-family:'Rajdhani',sans-serif; font-size:22px; font-weight:700; margin-bottom:16px; border-bottom:1px solid var(--border); padding-bottom:10px;">🔒 Seguridad</h2>
-                    <form action="cliente_actions.php" method="POST">
+                    <form action="app/actions/cliente_actions.php" method="POST">
                         <input type="hidden" name="action" value="change_password">
                         <div class="field">
                             <label>Contraseña Actual</label>
@@ -1069,7 +507,7 @@ if (isset($_GET['err'])) { $msg_accion = '✗ Ocurrió un error o la contraseña
             <span class="close" onclick="closeModal()">&#x2715;</span>
             <h2>Postular para Verificación</h2>
             <p>Sube tu documento de identidad para que el Administrador te valide:</p>
-            <form action="verify.php" method="POST" enctype="multipart/form-data">
+            <form action="app/pages/verify.php" method="POST" enctype="multipart/form-data">
                 <input type="text" name="nombre" placeholder="Nombre del Negocio" required>
                 <input type="file" name="id_doc" required>
                 <button type="submit" class="btn-submit">Enviar al Administrador</button>
@@ -1248,7 +686,7 @@ if (isset($_GET['err'])) { $msg_accion = '✗ Ocurrió un error o la contraseña
             summary.innerHTML = '';
 
             try {
-                const res  = await fetch('get_reviews.php?servicio_id=' + servicioId);
+                const res  = await fetch('app/api/get_reviews.php?servicio_id=' + servicioId);
                 const data = await res.json();
 
                 loading.style.display = 'none';
@@ -1392,7 +830,7 @@ if (isset($_GET['err'])) { $msg_accion = '✗ Ocurrió un error o la contraseña
             });
 
             try {
-                const res  = await fetch('chat_get.php?' + params);
+                const res  = await fetch('app/api/chat_get.php?' + params);
                 const data = await res.json();
                 if (!data.ok) return;
 
@@ -1469,7 +907,7 @@ if (isset($_GET['err'])) { $msg_accion = '✗ Ocurrió un error o la contraseña
             body.append('mensaje',      texto);
 
             try {
-                const res  = await fetch('chat_send.php', { method:'POST', body });
+                const res  = await fetch('app/api/chat_send.php', { method:'POST', body });
                 const data = await res.json();
 
                 if (typing) typing.style.display = 'none';
@@ -1537,7 +975,7 @@ if (isset($_GET['err'])) { $msg_accion = '✗ Ocurrió un error o la contraseña
             fd.append('servicio_id', chatCtx.servicio_id);
 
             try {
-                const res  = await fetch('contratacion_actions.php', { method: 'POST', body: fd });
+                const res  = await fetch('app/actions/contratacion_actions.php', { method: 'POST', body: fd });
                 const data = await res.json();
                 if (data.ok) {
                     cerrarServicio();
@@ -1566,7 +1004,7 @@ if (isset($_GET['err'])) { $msg_accion = '✗ Ocurrió un error o la contraseña
             fd.append('contratacion_id', id);
             fd.append('motivo', motivo);
             try {
-                const res  = await fetch('contratacion_actions.php', { method: 'POST', body: fd });
+                const res  = await fetch('app/actions/contratacion_actions.php', { method: 'POST', body: fd });
                 const data = await res.json();
                 if (data.ok) { window.location.reload(); }
                 else { alert('Error: ' + data.error); }
@@ -1614,7 +1052,7 @@ if (isset($_GET['err'])) { $msg_accion = '✗ Ocurrió un error o la contraseña
             fd.append('proveedor_id', ctx.proveedor_id);
             fd.append('archivar',     archivar);
             try {
-                const res  = await fetch('chat_archivar.php', { method: 'POST', body: fd });
+                const res  = await fetch('app/api/chat_archivar.php', { method: 'POST', body: fd });
                 const data = await res.json();
                 if (data.ok) {
                     // Quitar el item de la lista actual (se mueve al otro filtro)
@@ -1709,7 +1147,7 @@ if (isset($_GET['err'])) { $msg_accion = '✗ Ocurrió un error o la contraseña
             const btn = this.querySelector('button[type=submit]');
             btn.disabled = true; btn.textContent = 'Enviando...';
             try {
-                const res  = await fetch('contratacion_actions.php', { method: 'POST', body: fd });
+                const res  = await fetch('app/actions/contratacion_actions.php', { method: 'POST', body: fd });
                 const data = await res.json();
                 if (data.ok) { window.location.reload(); }
                 else { alert('Error: ' + data.error); btn.disabled = false; btn.textContent = 'Enviar Valoración'; }
