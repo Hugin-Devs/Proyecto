@@ -51,7 +51,7 @@
 </head>
 <body>
 <h1>🔧 ServiJob — Análisis Completo del Sistema</h1>
-<p><strong>Última actualización</strong>: Junio 12 - 2026 — v2.6.0 (Modo Cliente para Proveedores, compatibilidad móvil total, corrección de logo bicolor, protección anti-autocontratación en backend)</p>
+<p><strong>Última actualización</strong>: Junio 14 - 2026 — v2.6.1 (Refactorización del Home como Landing Page pública, estadísticas dinámicas, y redirección global de auth_guard a home.php)</p>
 <h2>Visión General</h2>
 <p><strong>ServiJob</strong> es un prototipo de plataforma web de <strong>marketplace de servicios locales</strong>, enfocado en el contexto venezolano (municipios de Caracas). Permite a clientes explorar y contactar proveedores de servicios, y a los proveedores gestionar sus ofertas.</p>
 <ul>
@@ -748,7 +748,7 @@ flowchart TD
 <ul>
 <li>Aplica headers anti-caché</li>
 <li>Verifica que la sesión tenga <code>user_id</code>, <code>user_role</code> y <code>user_name</code></li>
-<li>Si no es válida: destruye la sesión, borra la cookie, redirige a <code>login.php</code></li>
+<li>Si no es válida: destruye la sesión, borra la cookie, redirige a <code>home.php</code> (landing page pública).</li>
 <li>Expone helpers: <code>esAdmin()</code>, <code>nombreUsuario()</code>, <code>idUsuario()</code></li>
 </ul>
 <h3><code>auth_login.php</code></h3>
@@ -1012,8 +1012,8 @@ flowchart TD
 <hr />
 <h2>🗺️ Mapa de Rutas</h2>
 <pre><code>/
-├── index.php               ← Panel Cliente / Modo Cliente (🔒 protegido)
-├── home.php                ← Landing page
+├── home.php                ← Landing page pública (dinámica, sin auth_guard)
+├── index.php               ← Panel Cliente / Modo Cliente (🔒 protegido por auth_guard)
 ├── login.php               ← UI Login (unificado)
 ├── register.php            ← UI Registro PHP
 ├── logout.php              ← Cierra sesión

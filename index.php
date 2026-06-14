@@ -1,7 +1,19 @@
 <?php
+/**
+ * PANEL DE CLIENTE / EXPLORADOR DE SERVICIOS (index.php)
+ * 
+ * Es el punto de acceso para los usuarios con rol 'cliente' y la vista 
+ * "Modo Cliente" para los proveedores.
+ * Maneja:
+ * 1. Búsqueda y visualización de servicios (Catálogo).
+ * 2. Conversaciones con proveedores.
+ * 3. Contrataciones realizadas por el cliente.
+ * 4. Perfil e historial de proveedores contactados.
+ */
 require_once __DIR__ . '/app/core/auth_guard.php';
-// Se permite el acceso a proveedores para el "Modo Cliente"
-if (($_SESSION['user_role'] ?? '') === 'admin' && ($_GET['view'] ?? '') !== 'public') {
+
+// Redirección de admins: Si un admin intenta acceder al index (salvo con view=public),
+// es redirigido a su panel correspondiente. Se permite acceso a proveedores para el "Modo Cliente".
     header('Location: app/pages/admin_panel.php');
     exit;
 }
@@ -22,7 +34,9 @@ $mi_user_name = htmlspecialchars($_SESSION['user_name'] ?? 'Tú');
 // ── LÓGICA DE PANEL DE CLIENTE ──────────────────────────────────
 $tab = $_GET['tab'] ?? 'explorar';
 
-// 1. Obtener chats como cliente (activos y archivados por separado)
+// ── 1. OBTENER CHATS COMO CLIENTE ─────────────────────────────────
+// Filtramos los chats dependiendo si se consultan los "activos" o "archivados".
+// Se agrupan los mensajes para mostrar un resumen de la conversación.
 $chat_filtro_cliente = isset($_GET['chats_tab']) && $_GET['chats_tab'] === 'archivados' ? 1 : 0;
 
 $stmt_chats = mysqli_prepare($conn,
@@ -72,7 +86,9 @@ mysqli_stmt_execute($stmt_arch);
 $total_archivados_cliente = (int)(mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_arch))['total_arch'] ?? 0);
 mysqli_stmt_close($stmt_arch);
 
-// 2. Obtener estado de verificación
+// ── 2. OBTENER ESTADO DE VERIFICACIÓN ─────────────────────────────
+// Verifica si el cliente también tiene intenciones de postular como proveedor
+// consultando la tabla verificaciones.
 $stmt_verif = mysqli_prepare($conn, "SELECT estado FROM verificaciones WHERE usuario_id = ? ORDER BY created_at DESC LIMIT 1");
 mysqli_stmt_bind_param($stmt_verif, 'i', $mi_user_id);
 mysqli_stmt_execute($stmt_verif);
@@ -81,7 +97,9 @@ $verificacion = mysqli_fetch_assoc($res_verif);
 mysqli_stmt_close($stmt_verif);
 $estado_verif = $verificacion ? $verificacion['estado'] : 'no_enviado';
 
-// 3. Obtener historial de proveedores contactados
+// ── 3. OBTENER HISTORIAL DE PROVEEDORES ───────────────────────────
+// Extrae un listado único de los proveedores con los que el cliente 
+// ha tenido conversaciones de chat.
 $stmt_history = mysqli_prepare($conn,
     "SELECT DISTINCT u.id, u.nombre, u.apellido, u.email
      FROM chat_mensajes cm
@@ -93,7 +111,9 @@ mysqli_stmt_execute($stmt_history);
 $historial_proveedores = mysqli_stmt_get_result($stmt_history)->fetch_all(MYSQLI_ASSOC);
 mysqli_stmt_close($stmt_history);
 
-// 4. Obtener contrataciones del cliente
+// ── 4. OBTENER CONTRATACIONES DEL CLIENTE ─────────────────────────
+// Carga todos los servicios que el cliente ha solicitado, junto con 
+// el estado de la solicitud y su valoración si ya fue completada.
 $stmt_mis_contratos = mysqli_prepare($conn,
     "SELECT c.*, s.titulo AS servicio_titulo, u.nombre AS proveedor_nombre, u.apellido AS proveedor_apellido,
             v.id AS valoracion_id, v.puntuacion, v.comentario

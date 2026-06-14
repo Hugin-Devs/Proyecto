@@ -1,4 +1,11 @@
 <?php
+/**
+ * REGISTRO UNIFICADO (register.php)
+ * 
+ * Interfaz de registro para la creación de nuevas cuentas (Cliente o Proveedor).
+ * Carga dinámicamente listas auxiliares (municipios, categorías) para el formulario
+ * de proveedor y envía los datos a `auth_register.php` para su procesamiento.
+ */
 include __DIR__ . '/app/api/get_lists.php';
 $all_municipios = getMunicipios($conn);
 $all_categorias = getCategorias($conn);

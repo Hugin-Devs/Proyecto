@@ -11,6 +11,12 @@ if (!empty($_SESSION['user_id'])) {
 
 include 'app/core/db.php';
 
+// ── NOTA ARQUITECTÓNICA SOBRE AUTH_GUARD ──
+// No se incluye 'app/core/auth_guard.php' en este archivo a propósito.
+// Al ser la landing page pública del sistema, no requiere que el usuario
+// esté autenticado. Si incluyéramos auth_guard.php, se crearía un bucle
+// infinito de redirecciones porque auth_guard redirige aquí a los visitantes no logueados.
+
 // Estadísticas para el Hero
 $res_servicios = mysqli_query($conn, "SELECT COUNT(*) as c FROM servicios WHERE deleted_at IS NULL");
 $total_servicios = mysqli_fetch_assoc($res_servicios)['c'] ?? 0;

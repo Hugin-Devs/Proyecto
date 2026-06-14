@@ -1,6 +1,6 @@
 # 🔧 ServiJob — Análisis Completo del Sistema
 
-**Última actualización**: Junio 12 - 2026 — v2.6.0 (Modo Cliente para Proveedores, compatibilidad móvil total, corrección de logo bicolor, protección anti-autocontratación en backend)
+**Última actualización**: Junio 14 - 2026 — v2.6.1 (Refactorización del Home como Landing Page pública, estadísticas dinámicas, y redirección global de auth_guard a home.php)
 
 ## Visión General
 
@@ -259,7 +259,7 @@ El sistema usa un **único punto de login** (`login.php` → `auth_login.php`). 
 ### `auth_guard.php` (Middleware)
 - Aplica headers anti-caché
 - Verifica que la sesión tenga `user_id`, `user_role` y `user_name`
-- Si no es válida: destruye la sesión, borra la cookie, redirige a `login.php`
+- Si no es válida: destruye la sesión, borra la cookie, redirige a `home.php` (landing page pública).
 - Expone helpers: `esAdmin()`, `nombreUsuario()`, `idUsuario()`
 
 ### `auth_login.php`
@@ -445,8 +445,8 @@ El chat es una ventana flotante (`#chatWindow`) que funciona con **polling** (in
 
 ```
 /
-├── index.php               ← Panel Cliente / Modo Cliente (🔒 protegido)
-├── home.php                ← Landing page
+├── home.php                ← Landing page pública (dinámica, sin auth_guard)
+├── index.php               ← Panel Cliente / Modo Cliente (🔒 protegido por auth_guard)
 ├── login.php               ← UI Login (unificado)
 ├── register.php            ← UI Registro PHP
 ├── logout.php              ← Cierra sesión

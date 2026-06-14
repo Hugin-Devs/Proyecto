@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ServiJob — Análisis del Sistema</title>
+<script src="libs/mermaid.min.js"></script>
+<script src="libs/panzoom.min.js"></script>
+<style>
+  body { font-family: 'Segoe UI', sans-serif; max-width: 960px; margin: 40px auto; padding: 0 24px; color: #1a1a2e; line-height: 1.7; background: #f8f9fc; }
+  h1 { font-size: 2rem; color: #0f2057; border-bottom: 3px solid #2d5be3; padding-bottom: 12px; }
+  h2 { font-size: 1.4rem; color: #1a3a8f; margin-top: 36px; border-left: 4px solid #2d5be3; padding-left: 12px; }
+  h3 { font-size: 1.1rem; color: #2d5be3; margin-top: 24px; }
+  h4 { font-size: 1rem; color: #0f2057; margin-top: 20px; font-weight: bold; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; background: white; }
+  th { background: #1a3a8f; color: white; padding: 10px 14px; text-align: left; }
+  td { padding: 9px 14px; border-bottom: 1px solid #dde3f0; }
+  tr:nth-child(even) td { background: #eef1fa; }
+  code { background: #e8ecf8; padding: 2px 7px; border-radius: 4px; font-size: 13px; color: #1a3a8f; }
+  pre { background: #1a1a2e; color: #e8ecf8; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 13px; }
+  .mermaid { background: white; border: 1px solid #dde3f0; border-radius: 10px; padding: 24px; margin: 20px 0; text-align: center; cursor: zoom-in; transition: transform 0.2s ease; position: relative; }
+  .mermaid:hover { transform: scale(1.01); box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+  .mermaid::after { content: '🔍 Clic para ampliar'; position: absolute; bottom: 10px; right: 10px; font-size: 12px; color: #8898bb; background: rgba(255,255,255,0.9); padding: 4px 8px; border-radius: 4px; pointer-events: none; opacity: 0; transition: opacity 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+  .mermaid:hover::after { opacity: 1; }
+  .warning { background: #fff8e1; border-left: 4px solid #f5820d; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 12px 0; }
+  .note { background: #e8f4fd; border-left: 4px solid #2d5be3; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 12px 0; }
+  .tip { background: #e8fdf0; border-left: 4px solid #22c55e; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 12px 0; }
+  .caution { background: #ffebee; border-left: 4px solid #d32f2f; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 12px 0; }
+  hr { border: none; border-top: 2px solid #dde3f0; margin: 32px 0; }
+  ul li { margin: 6px 0; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+  .badge-blue { background: #e0e9ff; color: #1a3a8f; }
+  .badge-orange { background: #fff0e0; color: #d96a00; }
+  .badge-green { background: #e0faf0; color: #15803d; }
+  blockquote { background: #fff; padding: 15px; border-left: 5px solid #ccc; margin: 20px 0; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+  @media print { body { background: white; margin: 20px; } }
+  .zoom-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(12, 24, 64, 0.95); z-index: 9999; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; opacity: 0; transition: opacity 0.3s ease; }
+  .zoom-overlay.active { display: flex; opacity: 1; }
+  .zoom-container-box { background: white; border-radius: 12px; width: 95vw; height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); transform: scale(0.95); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; }
+  .zoom-overlay.active .zoom-container-box { transform: scale(1); }
+  .zoom-header { background: #f8f9fc; padding: 15px 20px; border-bottom: 1px solid #dde3f0; display: flex; justify-content: space-between; align-items: center; font-weight: bold; color: #1a3a8f; z-index: 10; }
+  .zoom-hint { font-size: 13px; font-weight: normal; color: #8898bb; }
+  .zoom-content { flex: 1; overflow: hidden; display: flex; justify-content: center; align-items: center; cursor: grab; background: #fafafa; }
+  .zoom-content:active { cursor: grabbing; }
+  .zoom-close { color: #8898bb; font-size: 28px; line-height: 1; cursor: pointer; transition: color 0.2s; }
+  .zoom-close:hover { color: #f5820d; }
+  .zoom-content svg { max-width: none !important; height: auto !important; }
+  .new-badge { background: #d1fae5; color: #065f46; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; margin-left: 6px; vertical-align: middle; }
+  .updated-badge { background: #dbeafe; color: #1e40af; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; margin-left: 6px; vertical-align: middle; }
+</style>
+</head>
+<body>
+<h1>🚀 Manual de Despliegue — ServiJob</h1>
+<p>Este documento describe paso a paso cómo instalar, configurar y poner en marcha la plataforma ServiJob en un entorno de desarrollo local (como XAMPP/WAMP) o en un servidor de producción.</p>
+<hr />
+<h2>1. 🛠 Requisitos Previos del Sistema</h2>
+<p>Asegúrate de que tu entorno cumpla con las siguientes características:
+*   <strong>Servidor Web</strong>: Apache (recomendado) o Nginx.
+*   <strong>PHP</strong>: Versión 8.0 o superior.
+*   <strong>Base de Datos</strong>: MySQL (versión 5.7+) o MariaDB (versión 10.3+).
+*   <strong>Extensiones PHP</strong>: <code>mysqli</code>.
+*   <strong>Permisos de Sistema</strong>: Capacidad para asignar permisos de escritura a carpetas de almacenamiento local.</p>
+<hr />
+<h2>2. 📥 Instalación de los Archivos</h2>
+<h3>En un entorno local (Ej. XAMPP)</h3>
+<ol>
+<li>Extrae o clona el repositorio del proyecto dentro de la carpeta pública de tu servidor (en el caso de XAMPP, en <code>C:\xampp\htdocs\</code> o <code>/opt/lampp/htdocs/</code>).</li>
+<li>Nombra la carpeta con un nombre adecuado para tu entorno (por ejemplo, <code>servijob</code> o <code>Proyecto</code>).</li>
+<li><em>La URL local será algo como: <code>http://localhost/Proyecto</code></em></li>
+</ol>
+<h3>En un servidor de producción (Linux/Debian/Ubuntu)</h3>
+<ol>
+<li>Sube los archivos a la carpeta pública, generalmente <code>/var/www/html/servijob</code>.</li>
+<li>Asigna la propiedad de los archivos al usuario del servidor web (típicamente <code>www-data</code>):
+   <code>bash
+   sudo chown -R www-data:www-data /var/www/html/servijob</code></li>
+</ol>
+<hr />
+<h2>3. 🗄️ Configuración de la Base de Datos</h2>
+<p>El sistema depende de una base de datos preestructurada para funcionar. Sigue estos pasos para importarla:</p>
+<ol>
+<li>Abre tu gestor de base de datos (por ejemplo, phpMyAdmin o terminal MySQL).</li>
+<li>Crea una base de datos vacía llamada <strong><code>service_libre</code></strong> con el cotejamiento (charset) <code>utf8mb4_general_ci</code> o <code>utf8mb4_unicode_ci</code>.</li>
+<li>Importa el archivo SQL que contiene la estructura y los datos iniciales, el cual se encuentra en el proyecto bajo la siguiente ruta:</li>
+<li><code>database/service_libre.sql</code></li>
+</ol>
+<hr />
+<h2>4. ⚙️ Conexión de la Base de Datos</h2>
+<p>Una vez importada la base de datos, debes decirle a la aplicación cómo conectarse a ella:</p>
+<ol>
+<li>Abre el archivo <code>app/core/db.php</code>.</li>
+<li>Verifica o ajusta las credenciales de conexión según tu entorno. Por defecto, en instalaciones locales estándar, el código lucirá así:</li>
+</ol>
+<p><code>php
+   $host = 'localhost';
+   $user = 'root';        // Tu usuario de BD
+   $pass = '';            // Tu contraseña de BD
+   $db   = 'service_libre';</code>
+3. Si estás desplegando en producción, reemplaza <code>$user</code> y <code>$pass</code> con las credenciales de tu usuario restringido de base de datos.</p>
+<hr />
+<h2>5. 🔒 Permisos de Directorios (Imágenes y Subidas)</h2>
+<p>Para que el sistema permita a los proveedores subir imágenes de sus servicios o documentos de verificación, el servidor necesita permisos de escritura en la carpeta respectiva.</p>
+<ol>
+<li>Localiza el directorio <code>uploads/</code> en la raíz del proyecto.</li>
+<li>Si estás en <strong>Windows</strong> (XAMPP), normalmente no requieres configuración extra.</li>
+<li>Si estás en <strong>Linux/Mac</strong>, debes asegurar permisos de escritura:
+   <code>bash
+   chmod 775 uploads/</code>
+   <em>(Si tienes problemas en Linux, puedes asignar <code>777</code> temporalmente para pruebas: <code>chmod 777 uploads/</code>)</em></li>
+</ol>
+<hr />
+<h2>6. 🛡️ Credenciales de Acceso Administrador</h2>
+<p>El archivo SQL que importaste (<code>service_libre.sql</code>) incluye un usuario Administrador por defecto para que puedas iniciar sesión, verificar proveedores y realizar labores de mantenimiento.</p>
+<ul>
+<li><strong>URL del Sistema</strong>: Accede a <code>http://localhost/Proyecto</code> (o tu dominio).</li>
+<li>Haz clic en el botón de <strong>Iniciar Sesión</strong>.</li>
+<li><strong>Correo</strong>: <code>admin@servijob.com</code></li>
+<li><strong>Contraseña</strong>: <code>admin1234</code></li>
+</ul>
+<blockquote>
+<p>⚠️ <strong>Nota de Seguridad</strong>: Se recomienda encarecidamente cambiar la contraseña del administrador desde el panel de perfil en un entorno de producción, así como eliminar cualquier script de limpieza que se encuentre en <code>scripts/php/</code>.</p>
+</blockquote>
+<hr />
+<h2>7. 🚀 Validaciones Finales</h2>
+<p>Una vez desplegado:
+1. Accede a la raíz del sitio (Home/Landing page). Verifica que las estadísticas dinámicas se visualicen correctamente (esto confirmará que la conexión a BD sirve).
+2. Haz clic en <strong>Ingresar</strong> y utiliza las credenciales de administrador para validar el panel de administración.
+3. Crea un usuario Cliente y un Proveedor de pruebas desde el botón <strong>Regístrate</strong> para validar que el enrutamiento base del sistema funciona sin fallas.</p>
+<script>
+mermaid.initialize({ startOnLoad: true, theme: 'default', securityLevel: 'loose' });
+
+// Zoom en diagramas Mermaid
+document.querySelectorAll('.mermaid').forEach(function(el) {
+  el.addEventListener('click', function() {
+    const overlay = document.getElementById('zoomOverlay');
+    const zoomContent = document.getElementById('zoomContent');
+    const svg = el.querySelector('svg');
+    if (!svg || !overlay) return;
+    const clone = svg.cloneNode(true);
+    clone.style.maxWidth = 'none';
+    clone.style.width = 'auto';
+    clone.style.height = 'auto';
+    zoomContent.innerHTML = '';
+    zoomContent.appendChild(clone);
+    overlay.classList.add('active');
+    setTimeout(function() {
+      const pz = panzoom(clone, { maxZoom: 5, minZoom: 0.5, zoomDoubleClickSpeed: 1 });
+      overlay.addEventListener('click', function closeOverlay(e) {
+        if (e.target === overlay || e.target.classList.contains('zoom-close')) {
+          overlay.classList.remove('active');
+          pz.dispose();
+          overlay.removeEventListener('click', closeOverlay);
+        }
+      });
+    }, 100);
+  });
+});
+</script>
+
+<!-- Zoom overlay -->
+<div class="zoom-overlay" id="zoomOverlay">
+  <div class="zoom-container-box">
+    <div class="zoom-header">
+      <span>🔍 Vista ampliada del diagrama</span>
+      <span class="zoom-hint">Scroll para hacer zoom · Arrastra para mover</span>
+      <span class="zoom-close" onclick="document.getElementById('zoomOverlay').classList.remove('active')">×</span>
+    </div>
+    <div class="zoom-content" id="zoomContent"></div>
+  </div>
+</div>
+
+</body>
+</html>
+
+
+

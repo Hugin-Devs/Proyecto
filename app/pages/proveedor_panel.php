@@ -1,7 +1,17 @@
 <?php
+/**
+ * PANEL DEL PROVEEDOR (proveedor_panel.php)
+ * 
+ * Este archivo es el punto de entrada para los usuarios con rol 'proveedor'.
+ * Maneja la visualización de:
+ * 1. Sus servicios activos y métricas.
+ * 2. Conversaciones de chat con clientes.
+ * 3. Contrataciones recibidas y sus estados.
+ * 4. Perfil y proceso de verificación de identidad.
+ */
 require_once __DIR__ . '/../core/auth_guard.php';
 
-// Solo proveedores
+// Validar autorización: Solo se permite el acceso a proveedores.
 if (($_SESSION['user_role'] ?? '') !== 'proveedor') {
     header('Location: ../../index.php');
     exit;
@@ -14,7 +24,9 @@ $all_categorias = getCategorias($conn);
 
 $uid = idUsuario();
 
-// ── Traer servicios del proveedor ─────────────────────────
+// ── 1. CONSULTA DE SERVICIOS DEL PROVEEDOR ─────────────────────────
+// Obtenemos todos los servicios activos (no eliminados lógicamente) que 
+// pertenecen al proveedor actual, ordenados por los más recientes.
 $stmt = mysqli_prepare($conn,
     "SELECT * FROM servicios WHERE usuario_id = ? AND deleted_at IS NULL ORDER BY created_at DESC"
 );
@@ -30,7 +42,9 @@ if (isset($_GET['added'])) { $msg = '✔ Nuevo servicio añadido.';           $m
 if (isset($_GET['del']))   { $msg = '✔ Servicio eliminado.';               $msg_type = 'warning'; }
 if (isset($_GET['err']))   { $msg = '✗ Ocurrió un error. Intenta de nuevo.'; $msg_type = 'error'; }
 
-// ── Traer conversaciones de chat del proveedor ────────────────
+// ── 2. CONSULTA DE CONVERSACIONES DE CHAT ─────────────────────────
+// Agrupa los mensajes por servicio y cliente para mostrar un listado
+// de conversaciones únicas, identificando el último mensaje y los no leídos.
 $chat_filtro_prov = isset($_GET['chats_tab']) && $_GET['chats_tab'] === 'archivados' ? 1 : 0;
 
 $stmt_chats = mysqli_prepare($conn,
@@ -80,14 +94,18 @@ mysqli_stmt_execute($stmt_arch_prov);
 $total_archivados_prov = (int)(mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_arch_prov))['total_arch'] ?? 0);
 mysqli_stmt_close($stmt_arch_prov);
 
-// ── Traer estado de verificación del proveedor ────────────────
+// ── 3. ESTADO DE VERIFICACIÓN ───────────────────────────────────────
+// Consulta si el proveedor ha enviado un documento de identidad y
+// cuál es su estado actual (pendiente, aprobado, rechazado) por el administrador.
 $stmt_verif = mysqli_prepare($conn, "SELECT * FROM verificaciones WHERE usuario_id = ? ORDER BY created_at DESC LIMIT 1");
 mysqli_stmt_bind_param($stmt_verif, 'i', $uid);
 mysqli_stmt_execute($stmt_verif);
 $verificacion_estado = mysqli_stmt_get_result($stmt_verif)->fetch_assoc();
 mysqli_stmt_close($stmt_verif);
 
-// ── Traer contrataciones del proveedor ─────────────────────────
+// ── 4. CONTRATACIONES Y MÉTRICAS ────────────────────────────────────
+// Extrae todas las contrataciones hechas a los servicios del proveedor.
+// Además incluye la información de valoraciones (estrellas y comentarios).
 $stmt_contratos = mysqli_prepare($conn,
     "SELECT c.*, s.titulo AS servicio_titulo, u.nombre AS cliente_nombre, u.apellido AS cliente_apellido,
             v.puntuacion, v.comentario

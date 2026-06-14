@@ -1,4 +1,12 @@
 <?php
+/**
+ * LOGIN UNIFICADO (login.php)
+ * 
+ * Interfaz de inicio de sesión pública para todos los tipos de usuario.
+ * No requiere autenticación previa.
+ * Almacena el destino y redirige al panel correspondiente (Cliente, Proveedor o Admin)
+ * mediante el script de validación `auth_login.php`.
+ */
 session_start();
 header('Expires: Sat, 01 Jan 2000 00:00:00 GMT');
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');

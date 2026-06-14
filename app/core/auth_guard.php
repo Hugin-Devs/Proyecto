@@ -34,6 +34,10 @@ if (!$valid) {
             $params["secure"], $params["httponly"]
         );
     }
+    // ── REDIRECCIÓN PRINCIPAL A LA LANDING PAGE ──
+    // Si el usuario no tiene una sesión válida y entra a una página protegida
+    // (como index.php que es el panel de cliente o la raíz), el sistema lo enviará 
+    // automáticamente a home.php para que vea la pantalla de inicio pública.
     header('Location: ' . _base_url() . '/home.php');
     exit;
 }
