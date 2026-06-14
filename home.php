@@ -448,8 +448,14 @@ if (!empty($_SESSION['user_id'])) {
             header { padding: 0 20px; }
             .nav-inner { flex-wrap: wrap; height: auto; padding: 14px 0; gap: 14px; }
             .nav-search { max-width: 100%; order: 3; }
+            nav { width: 100%; justify-content: center; gap: 10px; order: 4; margin-top: 5px; }
+            .btn-outline, .btn-cta { flex: 1; text-align: center; padding: 12px 0; }
             section.main-section, .categories, .cta-strip { padding-left: 20px; padding-right: 20px; }
-            .cta-inner { flex-direction: column; padding: 40px 24px; }
+            .cta-inner { flex-direction: column; padding: 40px 24px; text-align: center; }
+            .cta-btns { flex-direction: column; width: 100%; }
+            .cta-btns a { width: 100%; text-align: center; }
+            .modal-box { padding: 24px 16px; margin: 10px; width: 100%; max-height: 90vh; overflow-y: auto; }
+            .hero-stats { flex-direction: column; gap: 16px; align-items: center; text-align: center; }
         }
     </style>
 </head>

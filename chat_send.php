@@ -57,8 +57,11 @@ if ($soy_proveedor) {
     }
     $cliente_id = $cliente_id_post;
 } else {
-    // El cliente escribe → no puede escribirse a sí mismo si es el dueño
-    // (caso imposible en la práctica pero lo dejamos por seguridad)
+    // El cliente escribe
+    if ($mi_id === $proveedor_id) {
+        echo json_encode(['ok' => false, 'error' => 'No puedes enviarte mensajes a ti mismo.']);
+        exit;
+    }
     $cliente_id = $mi_id;
 }
 

@@ -1,9 +1,6 @@
 <?php
 require_once __DIR__ . '/auth_guard.php';
-if (($_SESSION['user_role'] ?? '') === 'proveedor') {
-    header('Location: proveedor_panel.php');
-    exit;
-}
+// Se permite el acceso a proveedores para el "Modo Cliente"
 if (($_SESSION['user_role'] ?? '') === 'admin' && ($_GET['view'] ?? '') !== 'public') {
     header('Location: admin_panel.php');
     exit;
@@ -139,7 +136,8 @@ if (isset($_GET['err'])) { $msg_accion = '✗ Ocurrió un error o la contraseña
         /* SIDEBAR */
         .sidebar { width: 260px; background: var(--navy); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 24px 0; flex-shrink: 0; }
         .logo { font-family: 'Rajdhani', sans-serif; font-size: 24px; font-weight: 700; padding: 0 24px 32px; border-bottom: 1px solid var(--border); margin-bottom: 24px; display:flex; align-items:center; gap:8px;}
-        .logo span { color: var(--orange); }
+        .logo .logo-text { color: white; }
+        .logo .logo-text span { color: var(--orange); }
         .nav-item { padding: 14px 24px; color: var(--text-muted); font-size: 15px; font-weight: 500; display: flex; align-items: center; gap: 12px; transition: all 0.2s; cursor: pointer; }
         .nav-item:hover, .nav-item.active { background: rgba(61,122,245,0.1); color: var(--blue-light); border-right: 3px solid var(--blue-light); }
         .nav-badge { background: var(--orange); color: white; font-size: 11px; padding: 2px 6px; border-radius: 10px; margin-left: auto; }
@@ -638,6 +636,55 @@ if (isset($_GET['err'])) { $msg_accion = '✗ Ocurrió un error o la contraseña
             display: flex; align-items: center; justify-content: center;
             border: 2px solid #0a1640;
         }
+        /* ── RESPONSIVE MOBILE ── */
+        .mobile-header { display:none; }
+        .sidebar-overlay { display:none; }
+        @media(max-width: 900px) {
+            body { flex-direction: column !important; }
+            .sidebar { 
+                position: fixed; top: 0; left: -260px; bottom: 0; 
+                z-index: 1000; transition: left 0.3s ease;
+                width: 260px;
+            }
+            .sidebar.open { left: 0; }
+            .sidebar-overlay {
+                display: none; position: fixed; inset: 0;
+                background: rgba(10,20,60,0.8); z-index: 999;
+                backdrop-filter: blur(4px);
+            }
+            .sidebar-overlay.open { display: block; }
+            .mobile-header {
+                display: flex; align-items: center; justify-content: space-between;
+                padding: 14px 20px; background: var(--navy); border-bottom: 1px solid var(--border);
+                position: sticky; top: 0; z-index: 998;
+                width: 100%; flex-shrink: 0;
+            }
+            .mobile-header-title { font-family: 'Rajdhani', sans-serif; font-size: 20px; font-weight: 700; display:flex; align-items:center; gap:8px; }
+            .mobile-header-title span { color: var(--orange); }
+            .mobile-menu-btn { background: none; border: none; color: white; font-size: 26px; cursor: pointer; line-height: 1; }
+
+            .main-content { width: 100% !important; overflow-x: hidden; padding-top: 0; }
+            .tab-content { padding: 20px 16px; }
+            .explorar-sticky { padding: 14px 16px; }
+            .filters-inline select { width: 100%; margin-bottom: 8px; }
+            .filters-inline button { width: 100%; }
+            /* Chat pantalla completa en móvil */
+            #chatWindow { width: 100% !important; height: 100% !important; bottom: 0; right: 0; left: 0; top: 0; border-radius: 0; z-index: 1100; }
+            /* Botón de cierre más grande */
+            .chat-close-btn {
+                width: 38px !important; height: 38px !important;
+                font-size: 20px !important;
+                background: rgba(255,80,80,0.15) !important;
+                color: #ff6b6b !important;
+                border-radius: 10px !important;
+            }
+            /* Stats-bar wrapper scroll horizontal */
+            .stats-bar-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 28px; }
+            .stats-bar-wrap .stats-bar { min-width: 520px; margin-bottom: 0; }
+            .srv-modal-box { padding: 16px; margin: 10px; width: 100%; max-height: 90vh; border-radius: 10px; }
+            .page-header h1 { font-size: 28px; }
+            .grid-services { grid-template-columns: 1fr !important; }
+        }
     </style>
 </head>
 <body>
@@ -648,6 +695,17 @@ if (isset($_GET['err'])) { $msg_accion = '✗ Ocurrió un error o la contraseña
             history.pushState(null, null, location.href);
         });
     </script>
+
+<!-- MOBILE HEADER & OVERLAY -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+<div class="mobile-header">
+    <div class="mobile-header-title">
+        <div style="width:28px; height:28px; background:linear-gradient(135deg, var(--blue-mid), var(--orange)); border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:14px; color:white;">⚙</div>
+        <span style="color:white;">SERVI-<span style="color:var(--orange);">JOB</span></span>
+    </div>
+    <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
+</div>
 
     <div class="sidebar">
         <a href="index.php" class="logo" style="text-decoration:none;">
@@ -669,7 +727,12 @@ if (isset($_GET['err'])) { $msg_accion = '✗ Ocurrió un error o la contraseña
         <a href="?tab=perfil" class="nav-item <?= $tab == 'perfil' ? 'active' : '' ?>">
             👤 Mi Perfil
         </a>
-        
+        <div style="flex:1"></div>
+        <?php if(($_SESSION['user_role'] ?? '') === 'proveedor'): ?>
+        <a href="proveedor_panel.php" class="nav-item" style="border-top: 1px solid rgba(255,255,255,0.05); color: #a5b4fc;">
+            ⚙️ Volver a Modo Proveedor
+        </a>
+        <?php endif; ?>
         <div class="sidebar-bottom">
             <div class="user-info">
                 <div class="user-avatar"><?= substr($mi_user_name, 0, 1) ?></div>
@@ -1150,10 +1213,13 @@ if (isset($_GET['err'])) { $msg_accion = '✗ Ocurrió un error o la contraseña
 
             // Si el usuario ES el proveedor de este servicio, ocultar botón de chat
             const btnChat = document.getElementById('btnAbrirChat');
+            const btnContratar = document.getElementById('btnContratar');
             if (MI_USER_ID === data.proveedor_id) {
                 btnChat.style.display = 'none';
+                btnContratar.style.display = 'none';
             } else {
                 btnChat.style.display = 'block';
+                btnContratar.style.display = 'block';
             }
 
             // Cargar reseñas
@@ -1649,6 +1715,12 @@ if (isset($_GET['err'])) { $msg_accion = '✗ Ocurrió un error o la contraseña
                 else { alert('Error: ' + data.error); btn.disabled = false; btn.textContent = 'Enviar Valoración'; }
             } catch(e) { alert('Error de conexión'); btn.disabled = false; btn.textContent = 'Enviar Valoración'; }
         });
+
+        // ── Menú Móvil ─────────────────────────────────────────────
+        function toggleSidebar() {
+            document.querySelector('.sidebar').classList.toggle('open');
+            document.getElementById('sidebarOverlay').classList.toggle('open');
+        }
     </script>
 </body>
 </html>

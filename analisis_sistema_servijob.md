@@ -1,6 +1,6 @@
 # 🔧 ServiJob — Análisis Completo del Sistema
 
-**Última actualización**: Mayo 30 - 2026 — v2.5 (Módulo de Auditoría y Seguridad Completo, Perfil 360°, Suspensión de Usuarios, logs inmutables, monitor de chats y verificación de servicios)
+**Última actualización**: Junio 12 - 2026 — v2.6.0 (Modo Cliente para Proveedores, compatibilidad móvil total, corrección de logo bicolor, protección anti-autocontratación en backend)
 
 ## Visión General
 
@@ -17,8 +17,9 @@
 
 | Archivo | Tipo | Descripción |
 |---|---|---|
-| `db.php` | Backend | Configuración y conexión a la BD |
-| `database.sql` | SQL | Esquema completo de tablas + datos de ejemplo |
+| `db.php` | Backend | Configuración y conexión a la BD + helper global `audit()` |
+| `service_libre.sql` | SQL | Esquema completo de tablas + datos de ejemplo (dump phpMyAdmin) |
+| `audit_log_migration.sql` | SQL | Migración idempotente: tabla `audit_log` + columna `suspendido_at` en usuarios |
 | `get_lists.php` | Backend | Helper para cargar listas dinámicas (municipios/categorías) |
 | `get_reviews.php` | Backend | **[NUEVO v2.2]** Endpoint JSON: reseñas anonimizadas con badge de verificación por servicio |
 | `auth_guard.php` | Backend | Middleware de autenticación y sesión |
@@ -31,8 +32,8 @@
 | `cliente_actions.php` | Backend | Acciones del cliente: cambio de contraseña |
 | `admin_actions.php` | Backend | Acciones del panel de administración |
 | `admin_panel.php` | Frontend+BE | Panel del administrador con sidebar y pestañas |
-| `proveedor_panel.php` | Frontend+BE | Panel del proveedor: Servicios (con métricas), Chats, Contrataciones (Maestro-Detalle), Perfil |
-| `index.php` | Frontend+BE | **Panel de Cliente**: Explorar (modal 2 cols + reseñas), Chats, Mis Contrataciones, Perfil |
+| `proveedor_panel.php` | Frontend+BE | Panel del proveedor: Servicios (con métricas), Chats, Contrataciones (Maestro-Detalle), Perfil — incluye acceso a **Modo Cliente** |
+| `index.php` | Frontend+BE | **Panel de Cliente/Modo Cliente**: Explorar, Chats, Mis Contrataciones, Perfil — accesible también por proveedores para contratar servicios ajenos |
 | `login.php` | Frontend | UI de inicio de sesión unificada |
 | `home.php` | Frontend | Página de inicio / landing (~119 KB) |
 | `register.php` | Frontend | Formulario de registro PHP |
@@ -40,8 +41,9 @@
 | `fix_db.php` | Utilidad | Reparador/migrador de BD (**⚠️ BORRAR en producción**) |
 | `verify.php` | Backend | Procesa solicitudes de verificación de proveedor |
 | `ver_doc.php` | Backend | Visualización segura de documentos |
-| `chat_get.php` | Backend | Sistema de mensajería — obtener mensajes |
-| `chat_send.php` | Backend | Sistema de mensajería — enviar mensajes |
+| `chat_get.php` | Backend | Sistema de mensajería — obtener mensajes del hilo |
+| `chat_send.php` | Backend | Sistema de mensajería — enviar mensaje al hilo |
+| `chat_archivar.php` | Backend | **[v2.5]** Archivar/desarchivar conversación por participante |
 | `style_backend.css` | CSS | Estilos base del panel de administración |
 | `uploads/` | Directorio | Imágenes subidas por los proveedores |
 | `analisis_export.html` | Doc | Exportación del análisis en formato HTML |
@@ -56,13 +58,16 @@
 |---|---|---|
 | `id` | INT UNSIGNED PK | Auto-increment |
 | `nombre` | VARCHAR(80) | Obligatorio |
-| `apellido` | VARCHAR(80) | Opcional |
+| `apellido` | VARCHAR(80) | Default `''` |
 | `email` | VARCHAR(120) UNIQUE | Índice; usado para login |
-| `telefono` | VARCHAR(30) | Opcional |
+| `telefono` | VARCHAR(30) | Default `''` |
 | `password` | VARCHAR(255) | Hash bcrypt |
 | `role` | ENUM | `'cliente'`, `'proveedor'`, `'admin'` |
-| `last_login` | DATETIME | Actualizado en cada login |
+| `last_login` | DATETIME | Actualizado en cada login exitoso |
 | `created_at` | DATETIME | Default `NOW()` |
+| `updated_at` | DATETIME | ON UPDATE `current_timestamp()` |
+| `deleted_at` | DATETIME | NULL = activo; fecha = soft-deleted |
+| `suspendido_at` | DATETIME | **[v2.5]** NULL = activo; fecha = suspendido desde esa fecha |
 
 ### Tabla `servicios`
 
@@ -72,13 +77,15 @@
 | `titulo` | VARCHAR(200) | Nombre del servicio |
 | `descripcion` | TEXT | Nullable |
 | `imagen` | VARCHAR(255) | Nombre del archivo en `uploads/` |
-| `categoria` | VARCHAR(80) | Plomería, Electricidad, Comida... |
-| `municipio` | VARCHAR(60) | Chacao, Baruta, Sucre, Libertador |
+| `categoria` | VARCHAR(80) | Plomería, Electricidad, Comida... (FK lógica a `categorias`) |
+| `municipio` | VARCHAR(60) | Chacao, Baruta, Sucre, Libertador (FK lógica a `municipios`) |
 | `precio` | DECIMAL(10,2) | En USD |
 | `usuario_id` | FK → usuarios | SET NULL si el usuario es borrado |
 | `es_destacado` | TINYINT(1) | Flag para servicios destacados |
 | `verificado` | TINYINT(1) | Flag de verificación por admin |
 | `created_at` | DATETIME | Default `NOW()` |
+| `updated_at` | DATETIME | ON UPDATE `current_timestamp()` |
+| `deleted_at` | DATETIME | NULL = activo; fecha = soft-deleted por admin |
 
 ### Tabla `verificaciones`
 
@@ -103,6 +110,7 @@
 | `estado` | ENUM | `'pendiente'`, `'aceptado'`, `'rechazado'`, `'completado'`, `'cancelado'` |
 | `motivo` | TEXT | Nullable; motivo de rechazo o cancelación |
 | `created_at` | DATETIME | Default `NOW()` |
+| `updated_at` | DATETIME | ON UPDATE `current_timestamp()` — registra cada cambio de estado |
 
 ### Tabla `valoraciones` — NUEVA v2.2
 
@@ -130,8 +138,43 @@
 | `mensaje` | TEXT | Contenido del mensaje |
 | `leido` | TINYINT(1) | 0 = no leído, 1 = leído |
 | `created_at` | DATETIME | Timestamp del mensaje |
+| `archivado_cliente` | TINYINT(1) | **[v2.5]** 0 = visible, 1 = archivado por el cliente |
+| `archivado_proveedor` | TINYINT(1) | **[v2.5]** 0 = visible, 1 = archivado por el proveedor |
 
-> Un hilo de chat se identifica por la combinación `(servicio_id + cliente_id + proveedor_id)`.
+> Un hilo de chat se identifica por la combinación `(servicio_id + cliente_id + proveedor_id)`. La columna `proveedor_id` se conserva en la BD para integridad referencial aunque la lógica de UI filtra por `(servicio_id + cliente_id)`.
+
+### Tabla `audit_log` — v2.5
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `id` | INT UNSIGNED PK | Auto-increment |
+| `usuario_id` | FK → usuarios (Nullable) | NULL si es acción del sistema |
+| `tipo` | VARCHAR(60) | Código del evento (ej. `login`, `admin_delete_user`) |
+| `entidad` | VARCHAR(40) | Tabla afectada (Nullable) |
+| `entidad_id` | INT UNSIGNED | ID del registro afectado (Nullable) |
+| `descripcion` | TEXT | Descripción legible del evento (Nullable) |
+| `ip` | VARCHAR(45) | IP del cliente (Nullable) |
+| `created_at` | DATETIME | Default `NOW()` — registro inmutable |
+
+> La tabla `audit_log` es de solo inserción. El helper `audit()` definido en `db.php` escribe en ella silenciosamente sin interrumpir el flujo principal.
+
+### Tabla `categorias`
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `id` | INT UNSIGNED PK | Auto-increment |
+| `nombre` | VARCHAR(80) | Nombre de la categoría (ej. Plomería, Electricidad) |
+
+> El campo `categoria` en `servicios` almacena el nombre directamente como VARCHAR (no FK). Las listas se cargan dinámicamente desde esta tabla vía `get_lists.php`.
+
+### Tabla `municipios`
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `id` | INT UNSIGNED PK | Auto-increment |
+| `nombre` | VARCHAR(60) | Nombre del municipio (ej. Chacao, Baruta) |
+
+> El campo `municipio` en `servicios` y `verificaciones` almacena el nombre directamente como VARCHAR. Las listas se cargan dinámicamente desde esta tabla vía `get_lists.php`.
 
 ### Usuario Admin por Defecto
 - **Email**: `admin@servijob.com`
@@ -167,10 +210,13 @@ flowchart TD
     I --> I2[💬 Tab: Mis Chats]
     I --> I3[🤝 Tab: Contrataciones — Maestro/Detalle]
     I --> I4[👤 Tab: Mi Perfil]
+    I --> I5["🔍 Modo Cliente → index.php"]
 
     I1 --> I1a["Tarjeta con métricas propias\n(total, pendientes, valoración media)"]
     I3 --> I3a["Vista Maestro: tarjetas por servicio"]
     I3a --> I3b["Vista Detalle: contrataciones del servicio\n(acepar/rechazar/completar + ver valoración)"]
+    I5 --> I5a["index.php con botón Volver a Modo Proveedor"]
+    I5a --> I5b["Servicios propios: botones contactar/contratar ocultos"]
 
     J --> J1[Gestión de Usuarios]
     J --> J2[Verificaciones]
@@ -186,8 +232,8 @@ flowchart TD
 - El botón "Postular Verificación" disponible en el sidebar
 
 ### Rol `proveedor`
-- Redirigido automáticamente a `proveedor_panel.php`
-- Layout de **sidebar fijo** con 4 pestañas
+- Redirigido automáticamente a `proveedor_panel.php` al iniciar sesión
+- Layout de **sidebar fijo** con 4 pestañas + acceso a Modo Cliente
 - **Tab Mis Servicios**: ve sus estadísticas globales, crea/edita/elimina sus servicios con imagen. Cada tarjeta de servicio muestra un **bloque de métricas propio**: total de contrataciones, solicitudes pendientes y valoración media.
 - **Tab Mis Chats**: ve todas las conversaciones activas con clientes y puede responder
 - **Tab Contrataciones**: navegación **Maestro-Detalle**:
@@ -195,7 +241,9 @@ flowchart TD
   - **Vista Detalle**: al hacer clic, muestra la lista de contrataciones de ese servicio con sus acciones (aceptar/rechazar/completar) y, si fue valorada, muestra estrellas + comentario del cliente
 - **Tab Mi Perfil**: cambia su contraseña de forma segura
 - Badge de no-leídos en chats; badge de pendientes en contrataciones
-- **PENDIENTE**: Integración del flujo de postulación de verificación de identidad
+- **Modo Cliente** (v2.6): botón en el sidebar "🔍 Cambiar a Modo Cliente" que permite al proveedor acceder a `index.php` para explorar, consultar y contratar servicios de otros proveedores. Sin necesidad de una segunda cuenta. Al navegar en modo cliente, el sidebar muestra el botón "⚙️ Volver a Modo Proveedor".
+  - Los servicios propios del proveedor muestran los botones de contacto/contratar deshabilitados en la vista de cliente.
+  - Protección anti-autocontratación a nivel de backend en `contratacion_actions.php` y `chat_send.php`.
 
 ### Rol `admin`
 - Accede directamente a `admin_panel.php`
@@ -331,16 +379,18 @@ El chat es una ventana flotante (`#chatWindow`) que funciona con **polling** (in
 
 ### Backend
 - **`chat_get.php`**: Recibe `servicio_id`, `cliente_id`, `proveedor_id`. Devuelve JSON con todos los mensajes del hilo. Marca como leídos los mensajes del otro usuario al consultar.
-- **`chat_send.php`**: Recibe el mismo trío + `mensaje`. Inserta en `chat_mensajes` y devuelve el mensaje insertado.
+- **`chat_send.php`**: Recibe el mismo trío + `mensaje`. Inserta en `chat_mensajes` y devuelve el mensaje insertado. Incluye validación que impide que el dueño del servicio se envíe mensajes a sí mismo.
 
-### Frontend — Cliente (`index.php`)
+### Frontend — Cliente / Modo Cliente (`index.php`)
 - **Desde catálogo**: Abre modal de servicio → botón "Contactar por Chat" → llama `abrirChatDesdeModal()`.
 - **Desde Tab Mis Chats**: Lista de conversaciones activas → click → llama `abrirChatDesdeLista(ctx)`.
 - La ventana de chat es reutilizada en ambos casos.
+- En **móvil**: la ventana de chat ocupa pantalla completa (`position: fixed; top:0; left:0`) con un botón de cierre prominente (38×38px, fondo rojo suave).
 
 ### Frontend — Proveedor (`proveedor_panel.php`)
 - Sección "Mensajes de Clientes" muestra lista de hilos activos con badge de no-leídos.
 - Click en una conversación → llama `abrirConversacion(ctx)` → abre ventana flotante.
+- En **móvil**: mismo comportamiento de pantalla completa y botón de cierre accesible.
 
 ---
 
@@ -358,65 +408,43 @@ El chat es una ventana flotante (`#chatWindow`) que funciona con **polling** (in
 - **Rajdhani** (500, 600, 700) — Títulos y logos
 - **DM Sans** (300, 400, 500, 600) — Cuerpo de texto
 
-### Layout — Panel de Cliente (`index.php`)
+### Layout — Panel de Cliente / Modo Cliente (`index.php`)
 - **Sidebar** fijo de 260px con 4 ítems de navegación:
   - 🔍 Explorar Servicios → `?tab=explorar`
   - 💬 Mis Chats → `?tab=chats` (badge de no leídos)
   - 🤝 Mis Contrataciones → `?tab=contratos` (badge de pendientes)
   - 👤 Mi Perfil → `?tab=perfil`
+  - ⚙️ Volver a Modo Proveedor *(visible solo si el usuario tiene rol `proveedor`)*
 - **Barra Sticky** en Tab Explorar: búsqueda + filtros con efecto glassmorphism.
 - **Modal de Servicio** (2 columnas desde v2.2):
   - Izquierda: imagen, título, descripción, precio, botones de contacto/contratar
   - Derecha: sección "⭐ Opiniones de clientes" con scroll independiente (carga dinámica vía `fetch`)
+  - *Si el servicio pertenece al usuario conectado, los botones de acción están ocultos.*
 - **Botón FAB "↑"**: aparece al hacer scroll > 300px.
+- **Responsivo (móvil ≤900px)**: header compacto superior, sidebar en overlay con botón hamburguesa, stats-bar con scroll horizontal mediante `.stats-bar-wrap`.
 
 ### Layout — Panel del Proveedor (`proveedor_panel.php`)
-- **Sidebar** fijo de 260px con 4 ítems de navegación:
+- **Sidebar** fijo de 260px con 5 ítems de navegación:
   - 📋 Mis Servicios → `?tab=servicios`
   - 💬 Mis Chats → `?tab=chats` (badge de no leídos)
   - 🤝 Contrataciones → `?tab=contratos` (badge de pendientes)
   - 👤 Mi Perfil → `?tab=perfil`
-- **Tab Mis Servicios**: grid de tarjetas con bloque de métricas (total contrataciones, pendientes, valoración media).
+  - 🔍 Cambiar a Modo Cliente → `index.php`
+- **Logo bicolor** en sidebar y header móvil: "SERVI-" en blanco, "JOB" en naranja.
+- **Tab Mis Servicios**: grid de tarjetas con bloque de métricas (total contrataciones, pendientes, valoración media). Stats-bar con scroll horizontal en móvil.
 - **Tab Contrataciones** — patrón Maestro-Detalle:
   - Vista Maestro: `#vista-maestro-contratos` — cuadrícula de tarjetas por servicio
   - Vista Detalle: `#detalle-[id]` — lista de clientes del servicio, con botón "⬅ Volver"
   - Transición manejada por JS: `mostrarDetalleContrato(id)` / `ocultarDetalleContrato()`
+- **Responsivo (móvil ≤900px)**: header compacto superior, sidebar en overlay, stats-bar con scroll horizontal.
 
 ### Layout — Panel de Admin (`admin_panel.php`)
 - Sidebar + pestañas con parámetro `?tab=`
-- Pestañas: Usuarios, Verificaciones, Servicios, Estadísticas
-
----
-
-## ⚠️ Observaciones y Estado del Sistema (v2.5)
-
-> [!NOTE]
-> **Login Unificado** — El sistema ya no tiene botón/modal separado para admin. Un solo formulario de login en `login.php` redirige según el `role` de la BD.
-
-> [!NOTE]
-> **Unicidad de valoraciones** — La tabla `valoraciones` tiene un índice UNIQUE en `contratacion_id`, lo que garantiza a nivel de base de datos que no se puedan doble-valorar contrataciones.
-
-> [!TIP]
-> **Conexión BD en texto plano** — Las credenciales en `db.php` usan `root` sin contraseña, ideal para desarrollo local pero debe cambiarse para producción. Considerar variables de entorno.
-
-> [!NOTE]
-> **✅ [DT-0] Auditoría de chats (COMPLETADO v2.5)** — El administrador tiene un monitor de hilos de chat integrado y seguro en tiempo real, permitiendo una supervisión en modo solo lectura de todas las conversaciones vinculadas a servicios del sistema.
-
-> [!IMPORTANT]
-> **[DT-1] Verificación de servicios por pasos** — Los proveedores como personas deben seguir el mismo proceso de verificación de identidad que los clientes. Adicionalmente, los servicios que publican deben pasar por un flujo de verificación propio de 3 pasos:
-> 1. Tener el **perfil de proveedor verificado** (identidad aprobada por admin).
-> 2. Subir **al menos 3 fotos** del servicio que publicitan.
-> 3. Después de **10 ventas exitosas**, mantener un **promedio mínimo de 85 puntos** en valoraciones.
-> Archivos afectados: `servicios` (BD), `proveedor_panel.php`, `proveedor_actions.php`, `admin_panel.php`, `admin_actions.php`.
-
-> [!NOTE]
-> **✅ [DT-2] Chats por servicio (COMPLETADO)** — El chat está formalmente vinculado al servicio y no al proveedor directamente. Un proveedor con varios servicios (ej. plomería y arte) cuenta con hilos de chat separados por cada servicio. El identificador de hilo se actualizó de `(servicio_id + cliente_id + proveedor_id)` a `(servicio_id + cliente_id)`. Se aplicó la migración en `chat_mensajes` y la lógica correspondiente en `chat_get.php`, `chat_send.php`, `index.php` y `proveedor_panel.php`.
-
-> [!NOTE]
-> **✅ [DT-3] Mejoras al panel de administración (COMPLETADO v2.5)** — Se implementó la vista detallada "Perfil 360°" que permite al admin auditar el estado del usuario, sus servicios y chats. Se añadió soporte para suspender/reactivar cuentas de usuarios en tiempo real, y controles individuales para verificar/desverificar servicios directamente desde las tablas.
-
-> [!NOTE]
-> **✅ [DT-4] Archivar chats (COMPLETADO)** — Se integró la función para archivar conversaciones tanto para clientes como para proveedores. Los chats archivados no se eliminan; se ocultan de la bandeja principal y se trasladan al filtro/sección de "Archivados". Se añadió el campo correspondiente en la persistencia de datos y se actualizó la interfaz de usuario en `index.php` y `proveedor_panel.php`.
+- **Logo bicolor** en header móvil: "SERVI-" en blanco, "JOB" en naranja.
+- Pestañas: **Usuarios**, **Verificaciones**, **Servicios**, **Categorías**, **Auditoría**
+  - **Auditoría** incluye dos sub-pestañas:
+    - 📋 **Log de Actividad**: tabla paginada y filtrable de `audit_log` (por tipo, usuario, rango de fechas)
+    - 💬 **Monitor de Chats**: vista de todos los hilos activos en modo solo lectura (administrador no puede enviar mensajes)
 
 ---
 
@@ -429,26 +457,30 @@ El chat es una ventana flotante (`#chatWindow`) que funciona con **polling** (in
 │   └── auth_login.php      ← Procesa login → redirige según rol
 ├── register.php            ← UI Registro PHP
 │   └── auth_register.php   ← Procesa registro
-├── index.php               ← Panel Cliente (🔒 protegido)
+├── index.php               ← Panel Cliente / Modo Cliente (🔒 protegido — accesible por clientes y proveedores)
 │   ├── logic.php           ← Genera tarjetas de servicios (con avg_rating)
-│   ├── get_reviews.php     ← [NUEVO v2.2] API JSON de reseñas anonimizadas
-│   ├── chat_get.php        ← Chat: Obtener mensajes
-│   ├── chat_send.php       ← Chat: Enviar mensajes
-│   ├── cliente_actions.php ← Cambio de contraseña
-│   └── contratacion_actions.php ← Ciclo de vida de contrataciones + valorar
-├── proveedor_panel.php     ← Panel Proveedor (🔒 protegido)
+│   ├── get_reviews.php     ← [v2.2] API JSON de reseñas anonimizadas
+│   ├── chat_get.php        ← Chat: Obtener mensajes del hilo
+│   ├── chat_send.php       ← Chat: Enviar mensaje + validación anti-auto-mensajería
+│   ├── chat_archivar.php   ← [v2.5] Archivar/desarchivar conversación
+│   ├── cliente_actions.php ← Cambio de contraseña del cliente
+│   └── contratacion_actions.php ← Ciclo de vida de contrataciones + valorar + validación anti-autocontratación
+├── proveedor_panel.php     ← Panel Proveedor (🔒 protegido) — incluye acceso a Modo Cliente
 │   ├── proveedor_actions.php ← CRUD servicios
+│   ├── chat_archivar.php   ← [v2.5] Archivar/desarchivar conversación
 │   └── contratacion_actions.php ← Gestión de contrataciones
 ├── admin_panel.php         ← Panel Admin (🔒 protegido)
-│   ├── admin_actions.php   ← Acciones admin
-│   └── ver_doc.php         ← Visualizador de documentos
-├── verify.php              ← Procesa solicitudes de verificación
+│   ├── admin_actions.php   ← Acciones admin (CRUD usuarios, verificaciones, servicios, audit log, monitor chats)
+│   └── ver_doc.php         ← Visualizador seguro de documentos
+├── verify.php              ← Procesa solicitudes de verificación de proveedor
 ├── logout.php              ← Cierra sesión
-├── db.php                  ← Conexión BD
-├── get_lists.php           ← Listas dinámicas (municipios/categorías)
-├── auth_guard.php          ← Middleware sesión
-├── style_backend.css       ← Estilos base admin
+├── db.php                  ← Conexión BD + helper global audit()
+├── get_lists.php           ← Listas dinámicas (municipios/categorías desde BD)
+├── auth_guard.php          ← Middleware sesión + helpers esAdmin(), idUsuario(), requireAdmin()
+├── style_backend.css       ← Estilos base del panel de administración
+├── service_libre.sql       ← Dump completo de la BD (phpMyAdmin)
+├── audit_log_migration.sql ← Migración idempotente v2.5: audit_log + suspendido_at
 ├── reset_admin.php         ← ⚠️ (BORRAR en producción)
 ├── fix_db.php              ← ⚠️ (BORRAR en producción)
-└── uploads/                ← Imágenes de servicios
+└── uploads/                ← Imágenes subidas por los proveedores
 ```

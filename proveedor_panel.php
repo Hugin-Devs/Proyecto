@@ -16,7 +16,7 @@ $uid = idUsuario();
 
 // ── Traer servicios del proveedor ─────────────────────────
 $stmt = mysqli_prepare($conn,
-    "SELECT * FROM servicios WHERE usuario_id = ? ORDER BY created_at DESC"
+    "SELECT * FROM servicios WHERE usuario_id = ? AND deleted_at IS NULL ORDER BY created_at DESC"
 );
 mysqli_stmt_bind_param($stmt, 'i', $uid);
 mysqli_stmt_execute($stmt);
@@ -79,6 +79,13 @@ mysqli_stmt_bind_param($stmt_arch_prov, 'i', $uid);
 mysqli_stmt_execute($stmt_arch_prov);
 $total_archivados_prov = (int)(mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_arch_prov))['total_arch'] ?? 0);
 mysqli_stmt_close($stmt_arch_prov);
+
+// ── Traer estado de verificación del proveedor ────────────────
+$stmt_verif = mysqli_prepare($conn, "SELECT * FROM verificaciones WHERE usuario_id = ? ORDER BY created_at DESC LIMIT 1");
+mysqli_stmt_bind_param($stmt_verif, 'i', $uid);
+mysqli_stmt_execute($stmt_verif);
+$verificacion_estado = mysqli_stmt_get_result($stmt_verif)->fetch_assoc();
+mysqli_stmt_close($stmt_verif);
 
 // ── Traer contrataciones del proveedor ─────────────────────────
 $stmt_contratos = mysqli_prepare($conn,
@@ -172,7 +179,8 @@ $tab = $_GET['tab'] ?? 'servicios';
         body { display: flex; }
         .sidebar { width: 260px; background: var(--navy); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 24px 0; flex-shrink: 0; }
         .logo { font-family: 'Rajdhani', sans-serif; font-size: 24px; font-weight: 700; padding: 0 24px 32px; border-bottom: 1px solid var(--border); margin-bottom: 24px; display:flex; align-items:center; gap:8px; text-decoration:none; color:white; }
-        .logo span { color: var(--orange); }
+        .logo .logo-text { color: white; }
+        .logo .logo-text span { color: var(--orange); }
         .nav-item { padding: 14px 24px; color: var(--text-muted); font-size: 15px; font-weight: 500; display: flex; align-items: center; gap: 12px; transition: all 0.2s; cursor: pointer; text-decoration:none; }
         .nav-item:hover, .nav-item.active { background: rgba(61,122,245,0.1); color: var(--blue-light); border-right: 3px solid var(--blue-light); }
         .nav-badge { background: var(--orange); color: white; font-size: 11px; padding: 2px 6px; border-radius: 10px; margin-left: auto; }
@@ -336,7 +344,9 @@ $tab = $_GET['tab'] ?? 'servicios';
         .stats-bar {
             display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:28px;
         }
-        @media(max-width:900px) { .stats-bar { grid-template-columns:repeat(2,1fr); } }
+        /* Wrapper para stats-bar con scroll horizontal en móvil */
+        .stats-bar-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom:28px; padding-bottom: 4px; }
+        .stats-bar-wrap .stats-bar { margin-bottom:0; min-width: 600px; }
         .stat-box {
             background:var(--card-bg); border:1px solid var(--border);
             border-radius:10px; padding:18px 20px;
@@ -526,10 +536,84 @@ $tab = $_GET['tab'] ?? 'servicios';
             transition:all .2s; flex-shrink:0;
         }
         #chatSendBtn:hover { transform:scale(1.08); box-shadow:0 0 16px rgba(61,122,245,0.5); }
-        #chatSendBtn:disabled { opacity:.4; cursor:default; transform:none; }
+        /* ── RESPONSIVE MOBILE ── */
+        .mobile-header { display:none; }
+        .sidebar-overlay { display:none; }
+        @media(max-width: 900px) {
+            /* El body pasa a columna: mobile-header arriba, luego el área de contenido */
+            body { flex-direction: column !important; }
+
+            .sidebar {
+                position: fixed; top: 0; left: -260px; bottom: 0;
+                z-index: 1000; transition: left 0.3s ease;
+                width: 260px;
+            }
+            .sidebar.open { left: 0; }
+
+            .sidebar-overlay {
+                display: none; position: fixed; inset: 0;
+                background: rgba(10,20,60,0.8); z-index: 999;
+                backdrop-filter: blur(4px);
+            }
+            .sidebar-overlay.open { display: block; }
+
+            /* El header pegado al tope, ocupando el 100% */
+            .mobile-header {
+                display: flex; align-items: center; justify-content: space-between;
+                padding: 14px 20px;
+                background: var(--navy); border-bottom: 1px solid var(--border);
+                position: sticky; top: 0; z-index: 998;
+                width: 100%; flex-shrink: 0;
+            }
+            .mobile-header-title {
+                font-family: 'Rajdhani', sans-serif; font-size: 20px; font-weight: 700;
+                display: flex; align-items: center; gap: 8px;
+            }
+            .mobile-header-title span { color: var(--orange); }
+            .mobile-menu-btn {
+                background: none; border: none; color: white;
+                font-size: 26px; cursor: pointer; line-height: 1;
+            }
+
+            /* El main-content ocupa todo el ancho restante */
+            .main-content {
+                width: 100% !important;
+                flex: 1;
+                overflow-x: hidden;
+                padding-top: 0;
+            }
+            .tab-content { padding: 20px 16px; }
+            .grid { grid-template-columns: 1fr !important; }
+            .stats-bar { grid-template-columns: repeat(2, 1fr); min-width: unset; }
+            .stats-bar-wrap .stats-bar { min-width: 520px; grid-template-columns: repeat(3, 1fr); }
+            /* Chat a pantalla completa en móvil */
+            #chatWindow { width: 100% !important; height: 100% !important; bottom: 0; right: 0; left: 0; top: 0; border-radius: 0; z-index: 1100; }
+            /* Botón de cierre del chat más grande y visible */
+            .chat-close-btn {
+                width: 38px !important; height: 38px !important;
+                font-size: 20px !important;
+                background: rgba(255,80,80,0.15) !important;
+                color: #ff6b6b !important;
+                border-radius: 10px !important;
+            }
+            .modal-box { padding: 24px 16px; margin: 10px; width: 100%; max-height: 90vh; }
+            .page-header h1 { font-size: 28px; }
+            .btn-row { flex-direction: column; }
+            .btn-row .btn { width: 100%; margin-bottom: 8px; }
+            .servicio-acciones { flex-direction: column; }
+            .servicio-acciones button { width: 100%; margin-bottom: 8px; }
+        }
     </style>
 </head>
 <body>
+
+<!-- MOBILE HEADER & OVERLAY -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+<div class="mobile-header">
+    <div class="mobile-header-title"><span style="color:white;">SERVI-<span>JOB</span></span></div>
+    <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
+</div>
 
 <!-- SIDEBAR -->
 <div class="sidebar">
@@ -551,6 +635,11 @@ $tab = $_GET['tab'] ?? 'servicios';
     </a>
     <a href="?tab=perfil" class="nav-item <?= $tab == 'perfil' ? 'active' : '' ?>">
         👤 Mi Perfil
+    </a>
+
+    <div style="flex:1"></div>
+    <a href="index.php" class="nav-item" style="border-top: 1px solid rgba(255,255,255,0.05); color: #a5b4fc;">
+        🔍 Cambiar a Modo Cliente
     </a>
 
     <div class="sidebar-bottom">
@@ -582,6 +671,7 @@ $tab = $_GET['tab'] ?? 'servicios';
 
 
     <!-- STATS -->
+    <div class="stats-bar-wrap">
     <div class="stats-bar">
         <div class="stat-box">
             <div class="stat-icon blue">📋</div>
@@ -613,6 +703,7 @@ $tab = $_GET['tab'] ?? 'servicios';
                 <div class="stat-label">Mensajes sin leer</div>
             </div>
         </div>
+    </div>
     </div>
 
     <!-- HEADER DE SERVICIOS -->
@@ -804,6 +895,7 @@ $tab = $_GET['tab'] ?? 'servicios';
         </div>
 
         <!-- MÉTTRICAS DE CONTRATACIONES -->
+        <div class="stats-bar-wrap">
         <div class="stats-bar" style="grid-template-columns: repeat(3, 1fr);">
             <div class="stat-box">
                 <div class="stat-icon blue">🤝</div>
@@ -826,6 +918,7 @@ $tab = $_GET['tab'] ?? 'servicios';
                     <div class="stat-label">Solicitudes Pendientes</div>
                 </div>
             </div>
+        </div>
         </div>
 
         <!-- Las métricas por servicio se calculan ahora al inicio del archivo -->
@@ -1032,24 +1125,101 @@ $tab = $_GET['tab'] ?? 'servicios';
         <?php if (!empty($_GET['err']) && $_GET['tab'] == 'perfil'): ?>
             <div class="toast error">✗ La contraseña actual es incorrecta o hubo un error.</div>
         <?php endif; ?>
+        <?php if (!empty($_GET['verify_ok'])): ?>
+            <div class="toast success" style="margin-bottom:24px;">✔ Tu solicitud de verificación ha sido enviada. El administrador la revisará pronto.</div>
+        <?php endif; ?>
+        <?php if (!empty($_GET['verify_err'])): ?>
+            <div class="toast error" style="margin-bottom:24px;">
+                ✗ Error al enviar verificación: 
+                <?= match($_GET['verify_err']) {
+                    'campos_vacios' => 'Faltan campos obligatorios.',
+                    'sin_documento' => 'Debes adjuntar un documento.',
+                    'formato_invalido' => 'El documento debe ser PDF, JPG o PNG.',
+                    'archivo_muy_grande' => 'El archivo supera el límite de 5MB.',
+                    'error_subida' => 'Error técnico al subir el archivo.',
+                    'db_error' => 'Error de base de datos. Intenta más tarde.',
+                    default => 'Error desconocido.'
+                } ?>
+            </div>
+        <?php endif; ?>
 
-        <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:24px; max-width:500px; margin-bottom:24px;">
-            <h3 style="margin-bottom:20px; font-family:'Rajdhani',sans-serif; font-size:22px; font-weight:700;">Cambiar Contraseña</h3>
-            <form action="proveedor_actions.php" method="POST">
-                <input type="hidden" name="action" value="change_password">
-                
-                <div class="field">
-                    <label>Contraseña Actual</label>
-                    <input type="password" name="current_password" required placeholder="Ingresa tu contraseña actual">
-                </div>
-                
-                <div class="field">
-                    <label>Nueva Contraseña</label>
-                    <input type="password" name="new_password" required placeholder="Mínimo 6 caracteres">
-                </div>
+        <div class="grid" style="align-items: start;">
+            <!-- Panel Izquierdo: Contraseña -->
+            <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:24px;">
+                <h3 style="margin-bottom:20px; font-family:'Rajdhani',sans-serif; font-size:22px; font-weight:700;">Cambiar Contraseña</h3>
+                <form action="proveedor_actions.php" method="POST">
+                    <input type="hidden" name="action" value="change_password">
+                    
+                    <div class="field">
+                        <label>Contraseña Actual</label>
+                        <input type="password" name="current_password" required placeholder="Ingresa tu contraseña actual">
+                    </div>
+                    
+                    <div class="field">
+                        <label>Nueva Contraseña</label>
+                        <input type="password" name="new_password" required placeholder="Mínimo 6 caracteres">
+                    </div>
 
-                <button type="submit" class="btn btn-primary" style="width:100%; margin-top:10px;">Actualizar Contraseña</button>
-            </form>
+                    <button type="submit" class="btn btn-primary" style="width:100%; margin-top:10px;">Actualizar Contraseña</button>
+                </form>
+            </div>
+
+            <!-- Panel Derecho: Verificación -->
+            <div style="background:var(--card-bg); border:1px solid var(--border); border-radius:12px; padding:24px;">
+                <h3 style="margin-bottom:20px; font-family:'Rajdhani',sans-serif; font-size:22px; font-weight:700; display:flex; align-items:center; gap:8px;">
+                    🛡️ Verificación de Identidad
+                </h3>
+                
+                <?php if ($verificacion_estado && $verificacion_estado['estado'] === 'aprobado'): ?>
+                    <div style="background:rgba(74,222,128,0.1); border:1px solid rgba(74,222,128,0.3); padding:16px; border-radius:8px; text-align:center;">
+                        <div style="font-size:32px; margin-bottom:8px;">✅</div>
+                        <h4 style="color:#4ade80; font-size:16px; margin-bottom:4px;">¡Perfil Verificado!</h4>
+                        <p style="font-size:13px; color:var(--text-muted);">Tu identidad ha sido comprobada por un administrador.</p>
+                    </div>
+                <?php elseif ($verificacion_estado && $verificacion_estado['estado'] === 'pendiente'): ?>
+                    <div style="background:rgba(245,130,13,0.1); border:1px solid rgba(245,130,13,0.3); padding:16px; border-radius:8px; text-align:center;">
+                        <div style="font-size:32px; margin-bottom:8px;">⏳</div>
+                        <h4 style="color:var(--orange); font-size:16px; margin-bottom:4px;">Revisión en Proceso</h4>
+                        <p style="font-size:13px; color:var(--text-muted);">Tu documento está siendo revisado por un administrador. Esto puede tardar hasta 48 horas.</p>
+                    </div>
+                <?php else: ?>
+                    <?php if ($verificacion_estado && $verificacion_estado['estado'] === 'rechazado'): ?>
+                        <div style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); padding:16px; border-radius:8px; margin-bottom:20px;">
+                            <h4 style="color:#f87171; font-size:14px; margin-bottom:4px;">❌ Solicitud Anterior Rechazada</h4>
+                            <p style="font-size:12px; color:var(--text-muted);">Por favor revisa que el documento sea legible y tus datos coincidan e intenta de nuevo.</p>
+                        </div>
+                    <?php endif; ?>
+                    
+                    <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px; line-height:1.5;">
+                        Sube una foto legible de tu cédula de identidad o RIF. Los proveedores verificados inspiran más confianza y consiguen más clientes.
+                    </p>
+                    
+                    <form action="verify.php" method="POST" enctype="multipart/form-data">
+                        <div class="field">
+                            <label>Nombre Completo / Razón Social</label>
+                            <input type="text" name="nombre" value="<?= htmlspecialchars(nombreUsuario()) ?>" required>
+                        </div>
+                        
+                        <div class="field">
+                            <label>Municipio Principal</label>
+                            <select name="municipio" required>
+                                <option value="">Selecciona tu municipio...</option>
+                                <?php foreach ($all_municipios as $m): ?>
+                                    <option value="<?= htmlspecialchars($m['nombre']) ?>"><?= htmlspecialchars($m['nombre']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        
+                        <div class="field">
+                            <label>Documento (Cédula o RIF)</label>
+                            <input type="file" name="id_doc" accept=".pdf,image/png,image/jpeg" required style="display:block; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:10px; width:100%; color:var(--text-muted); font-family:'DM Sans',sans-serif; cursor:pointer;">
+                            <small style="display:block; margin-top:6px; color:var(--text-muted); font-size:11px;">Formato PDF, JPG o PNG. Máx. 5MB.</small>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-orange" style="width:100%; margin-top:10px;">Enviar para Revisión</button>
+                    </form>
+                <?php endif; ?>
+            </div>
         </div>
     </div> <!-- fin tab-perfil -->
 
@@ -1214,6 +1384,12 @@ $tab = $_GET['tab'] ?? 'servicios';
 </div>
 
 <script>
+// ── Menú Móvil ─────────────────────────────────────────────
+function toggleSidebar() {
+    document.querySelector('.sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+
 // ── Modales ───────────────────────────────────────────────
 function cerrarModal(id) {
     document.getElementById(id).classList.remove('open');

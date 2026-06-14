@@ -41,6 +41,11 @@ $mime_types = [
 
 $content_type = $mime_types[$ext] ?? 'application/octet-stream';
 
+// Limpiar cualquier búfer de salida para no corromper el archivo binario
+if (ob_get_level()) {
+    ob_end_clean();
+}
+
 header('Content-Type: ' . $content_type);
 header('Content-Disposition: inline; filename="' . basename($file_path) . '"');
 header('Content-Length: ' . filesize($file_path));

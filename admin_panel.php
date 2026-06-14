@@ -119,10 +119,61 @@ $categorias = mysqli_query($conn, "SELECT * FROM categorias ORDER BY nombre ASC"
         .admin-pagination { display: flex; gap: 8px; padding: 16px 20px; background: rgba(255,255,255,0.02); border-top: 1px solid var(--border); justify-content: flex-end; }
         .btn-page { padding: 6px 12px; border-radius: 6px; background: rgba(255,255,255,0.05); color: var(--text-muted); font-size: 13px; text-decoration: none; border: 1px solid var(--border); }
         .btn-page:hover { background: rgba(61,122,245,0.1); color: var(--blue-light); }
-        .btn-page.active { background: var(--blue-mid); color: white; border-color: var(--blue-light); }
+        /* ── RESPONSIVE MOBILE ── */
+        .mobile-header { display:none; }
+        .sidebar-overlay { display:none; }
+        @media(max-width: 900px) {
+            body { flex-direction: column !important; }
+            .sidebar { 
+                position: fixed; top: 0; left: -260px; bottom: 0; 
+                z-index: 1000; transition: left 0.3s ease;
+                width: 260px;
+            }
+            .sidebar.open { left: 0; }
+            .sidebar-overlay {
+                display: none; position: fixed; inset: 0;
+                background: rgba(10,20,60,0.8); z-index: 999;
+                backdrop-filter: blur(4px);
+            }
+            .sidebar-overlay.open { display: block; }
+            .mobile-header {
+                display: flex; align-items: center; justify-content: space-between;
+                padding: 14px 20px; background: var(--navy); border-bottom: 1px solid var(--border);
+                position: sticky; top: 0; z-index: 998;
+                width: 100%; flex-shrink: 0;
+            }
+            .mobile-header-title {
+                font-family: 'Rajdhani', sans-serif; font-size: 20px; font-weight: 700;
+                display: flex; align-items: center; gap: 8px;
+            }
+            .mobile-header-title span { color: var(--orange); }
+            .mobile-menu-btn {
+                background: none; border: none; color: white;
+                font-size: 26px; cursor: pointer; line-height: 1;
+            }
+
+            .main-content { width: 100% !important; overflow-x: hidden; padding: 20px; }
+            .header { flex-direction: column; align-items: flex-start; gap: 16px; margin-bottom: 24px; }
+            .metrics-grid { grid-template-columns: 1fr; }
+            .table-wrap { overflow-x: auto; }
+            table { min-width: 600px; }
+            .form-group { flex-direction: column; }
+            .form-submit { width: 100%; }
+        }
     </style>
+    <!-- Librerías para exportar a PDF (Offline) -->
+    <script src="libs/jspdf.umd.min.js"></script>
+    <script src="libs/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
+
+<!-- MOBILE HEADER & OVERLAY -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+<div class="mobile-header">
+    <div class="mobile-header-title"><span style="color:white;">SERVI-<span>JOB</span></span> ADMIN</div>
+    <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
+</div>
 
 <div class="sidebar">
     <div class="logo">Admin<span>Job</span></div>
@@ -493,10 +544,13 @@ $categorias = mysqli_query($conn, "SELECT * FROM categorias ORDER BY nombre ASC"
                 <div>
                     <button class="form-submit" onclick="cargarAuditLogs(1)" style="width:100%; padding:11px; cursor:pointer;">🔍 Filtrar</button>
                 </div>
+                <div>
+                    <button class="btn-sm btn-doc" onclick="exportarAuditoriaPDF()" style="width:100%; padding:11px; cursor:pointer; background: #2d5be3; color: white; border: none; border-radius: 8px; font-weight: 600; font-family: 'DM Sans', sans-serif; font-size: 13px;">📄 Exportar PDF</button>
+                </div>
             </div>
 
             <div class="table-wrap">
-                <table>
+                <table id="audit-table">
                     <thead>
                         <tr>
                             <th>Fecha</th>
@@ -819,6 +873,46 @@ function cargarAuditLogs(page) {
             console.error(err);
             tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:#f87171;">❌ Error de conexión al cargar los logs.</td></tr>`;
         });
+}
+
+function exportarAuditoriaPDF() {
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+        alert("La librería para generar PDF aún se está cargando. Intenta en un momento.");
+        return;
+    }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('landscape');
+    
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text("Reporte de Auditoria - ServiJob", 14, 15);
+    
+    const tipo = document.getElementById('filt-tipo').options[document.getElementById('filt-tipo').selectedIndex].text;
+    const uid = document.getElementById('filt-uid').value || 'Todos';
+    const desde = document.getElementById('filt-desde').value || 'Inicio';
+    const hasta = document.getElementById('filt-hasta').value || 'Hoy';
+    
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(`Filtros aplicados - Tipo: ${tipo} | Usuario: ${uid} | Desde: ${desde} | Hasta: ${hasta}`, 14, 22);
+
+    doc.autoTable({
+        html: '#audit-table',
+        startY: 28,
+        theme: 'grid',
+        styles: { fontSize: 8, cellPadding: 3 },
+        headStyles: { fillColor: [45, 91, 227] },
+        columnStyles: {
+            0: { cellWidth: 35 },
+            1: { cellWidth: 45 },
+            2: { cellWidth: 50 },
+            3: { cellWidth: 35 },
+            4: { cellWidth: 'auto' },
+            5: { cellWidth: 30 }
+        }
+    });
+
+    doc.save('auditoria_servijob.pdf');
 }
 
 // --- SUBTAB 2: MONITOR DE CHATS ---
@@ -1244,6 +1338,12 @@ function escapeJs(str) {
         .replace(/\\/g, '\\\\')
         .replace(/'/g, "\\'")
         .replace(/"/g, '\\"');
+}
+
+// ── Menú Móvil ─────────────────────────────────────────────
+function toggleSidebar() {
+    document.querySelector('.sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('open');
 }
 </script>
 </body>

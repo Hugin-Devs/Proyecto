@@ -29,6 +29,11 @@ if ($action === 'solicitar') {
     if ($row = mysqli_fetch_assoc($res)) {
         $proveedor_id = (int)$row['usuario_id'];
         
+        if ($proveedor_id === $mi_id) {
+            echo json_encode(['ok' => false, 'error' => 'No puedes contratar tu propio servicio.']);
+            exit;
+        }
+        
         // Verificar que no haya ya una solicitud pendiente o aceptada para este servicio y cliente
         $check = mysqli_prepare($conn, "SELECT id FROM contrataciones WHERE servicio_id = ? AND cliente_id = ? AND estado IN ('pendiente', 'aceptado')");
         mysqli_stmt_bind_param($check, 'ii', $servicio_id, $mi_id);

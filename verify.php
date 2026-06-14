@@ -15,18 +15,23 @@ if ($uid <= 0) {
     exit;
 }
 
+// Determinar URL de redirección según el rol
+$role = $_SESSION['user_role'] ?? '';
+$redirect_url = ($role === 'proveedor') ? 'proveedor_panel.php?tab=perfil' : 'index.php';
+$sep = (strpos($redirect_url, '?') === false) ? '?' : '&';
+
 $nombre    = trim($_POST['nombre'] ?? '');
 $municipio = trim($_POST['municipio'] ?? '');
 
 if (empty($nombre) || empty($municipio)) {
     // Redirigir con error (esto debería ser manejado mejor en frontend)
-    header('Location: index.php?verify_err=campos_vacios');
+    header("Location: {$redirect_url}{$sep}verify_err=campos_vacios");
     exit;
 }
 
 // ── Validar y subir documento ──────────────────────────────────
 if (empty($_FILES['id_doc']['name'])) {
-    header('Location: index.php?verify_err=sin_documento');
+    header("Location: {$redirect_url}{$sep}verify_err=sin_documento");
     exit;
 }
 
@@ -35,12 +40,12 @@ $ext  = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
 $allowed = ['pdf', 'jpg', 'jpeg', 'png'];
 
 if (!in_array($ext, $allowed)) {
-    header('Location: index.php?verify_err=formato_invalido');
+    header("Location: {$redirect_url}{$sep}verify_err=formato_invalido");
     exit;
 }
 
 if ($file['size'] > 5 * 1024 * 1024) { // 5MB
-    header('Location: index.php?verify_err=archivo_muy_grande');
+    header("Location: {$redirect_url}{$sep}verify_err=archivo_muy_grande");
     exit;
 }
 
@@ -53,7 +58,7 @@ $nombre_archivo = uniqid('doc_', true) . '.' . $ext;
 $ruta_destino = $carpeta . $nombre_archivo;
 
 if (!move_uploaded_file($file['tmp_name'], $ruta_destino)) {
-    header('Location: index.php?verify_err=error_subida');
+    header("Location: {$redirect_url}{$sep}verify_err=error_subida");
     exit;
 }
 
@@ -66,7 +71,7 @@ $stmt = mysqli_prepare($conn,
 if (!$stmt) {
     // Si falla, borramos el archivo que acabamos de subir
     unlink($ruta_destino);
-    header('Location: index.php?verify_err=db_error');
+    header("Location: {$redirect_url}{$sep}verify_err=db_error");
     exit;
 }
 
@@ -76,10 +81,10 @@ if (mysqli_stmt_execute($stmt)) {
     $verificacion_id = mysqli_insert_id($conn);
     audit('verificacion_solicitada', $uid, 'verificaciones', $verificacion_id, "Solicitud de verificación de identidad, documento: $nombre_archivo");
     mysqli_stmt_close($stmt);
-    header('Location: index.php?verify_ok=1');
+    header("Location: {$redirect_url}{$sep}verify_ok=1");
 } else {
     unlink($ruta_destino);
     mysqli_stmt_close($stmt);
-    header('Location: index.php?verify_err=db_error');
+    header("Location: {$redirect_url}{$sep}verify_err=db_error");
 }
 exit;
