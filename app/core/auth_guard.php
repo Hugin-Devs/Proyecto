@@ -34,7 +34,7 @@ if (!$valid) {
             $params["secure"], $params["httponly"]
         );
     }
-    header('Location: ' . _base_url() . '/login.php');
+    header('Location: ' . _base_url() . '/home.php');
     exit;
 }
 

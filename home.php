@@ -8,6 +8,47 @@ if (!empty($_SESSION['user_id'])) {
     header('Location: index.php');
     exit;
 }
+
+include 'app/core/db.php';
+
+// Estadísticas para el Hero
+$res_servicios = mysqli_query($conn, "SELECT COUNT(*) as c FROM servicios WHERE deleted_at IS NULL");
+$total_servicios = mysqli_fetch_assoc($res_servicios)['c'] ?? 0;
+
+$res_verificados = mysqli_query($conn, "SELECT COUNT(*) as c FROM servicios WHERE verificado = 1 AND deleted_at IS NULL");
+$total_verificados = mysqli_fetch_assoc($res_verificados)['c'] ?? 0;
+
+$res_municipios = mysqli_query($conn, "SELECT COUNT(DISTINCT municipio) as c FROM servicios WHERE deleted_at IS NULL AND municipio != ''");
+$total_municipios = mysqli_fetch_assoc($res_municipios)['c'] ?? 0;
+
+// Categorías
+$res_categorias = mysqli_query($conn, "
+    SELECT c.nombre, COUNT(s.id) as count 
+    FROM categorias c 
+    LEFT JOIN servicios s ON c.nombre = s.categoria AND s.deleted_at IS NULL 
+    GROUP BY c.id 
+    ORDER BY count DESC 
+    LIMIT 8
+");
+
+// Servicios destacados/recientes
+$res_recientes = mysqli_query($conn, "
+    SELECT * FROM servicios 
+    WHERE deleted_at IS NULL 
+    ORDER BY es_destacado DESC, created_at DESC 
+    LIMIT 6
+");
+
+$emojis = [
+    'Plomería' => '🔧',
+    'Electricidad' => '⚡',
+    'Comida' => '🍕',
+    'Remodelación' => '🏠',
+    'Belleza' => '💈',
+    'Delivery' => '📦',
+    'Tecnología' => '💻',
+    'Jardinería' => '🌱',
+];
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -50,15 +91,15 @@ if (!empty($_SESSION['user_id'])) {
         </div>
         <div class="hero-stats">
             <div class="stat">
-                <div class="stat-num">1.2<span>K+</span></div>
+                <div class="stat-num"><?php echo $total_servicios; ?><span>+</span></div>
                 <div class="stat-label">Servicios activos</div>
             </div>
             <div class="stat">
-                <div class="stat-num">430<span>+</span></div>
+                <div class="stat-num"><?php echo $total_verificados; ?><span>+</span></div>
                 <div class="stat-label">Verificados</div>
             </div>
             <div class="stat">
-                <div class="stat-num">5<span></span></div>
+                <div class="stat-num"><?php echo $total_municipios; ?><span></span></div>
                 <div class="stat-label">Municipios</div>
             </div>
         </div>
@@ -97,14 +138,14 @@ if (!empty($_SESSION['user_id'])) {
         <h2 class="section-title">Categorías <span>Populares</span></h2>
     </div>
     <div class="cat-grid">
-        <div class="cat-item"><div class="cat-emoji">🔧</div><div class="cat-name">Plomería</div><div class="cat-count">142 servicios</div></div>
-        <div class="cat-item"><div class="cat-emoji">⚡</div><div class="cat-name">Electricidad</div><div class="cat-count">98 servicios</div></div>
-        <div class="cat-item"><div class="cat-emoji">🍕</div><div class="cat-name">Comida</div><div class="cat-count">231 servicios</div></div>
-        <div class="cat-item"><div class="cat-emoji">🏠</div><div class="cat-name">Remodelación</div><div class="cat-count">87 servicios</div></div>
-        <div class="cat-item"><div class="cat-emoji">💈</div><div class="cat-name">Belleza</div><div class="cat-count">176 servicios</div></div>
-        <div class="cat-item"><div class="cat-emoji">📦</div><div class="cat-name">Delivery</div><div class="cat-count">65 servicios</div></div>
-        <div class="cat-item"><div class="cat-emoji">💻</div><div class="cat-name">Tecnología</div><div class="cat-count">54 servicios</div></div>
-        <div class="cat-item"><div class="cat-emoji">🌱</div><div class="cat-name">Jardinería</div><div class="cat-count">43 servicios</div></div>
+        <?php while($cat = mysqli_fetch_assoc($res_categorias)): ?>
+            <?php $emoji = $emojis[$cat['nombre']] ?? '🏷️'; ?>
+            <div class="cat-item">
+                <div class="cat-emoji"><?php echo $emoji; ?></div>
+                <div class="cat-name"><?php echo htmlspecialchars($cat['nombre']); ?></div>
+                <div class="cat-count"><?php echo $cat['count']; ?> servicios</div>
+            </div>
+        <?php endwhile; ?>
     </div>
 </div>
 
@@ -124,91 +165,39 @@ if (!empty($_SESSION['user_id'])) {
     </div>
 
     <div class="grid-services" id="servicesGrid">
-        <!-- Demo cards (en prod vienen de PHP/logic.php) -->
-        <div class="card featured" data-municipio="chacao">
-            <div class="card-img">🔧</div>
-            <div class="card-body">
-                <div class="card-top">
-                    <span class="tag-featured">Destacado</span>
-                    <span class="card-verified">✔ Verificado</span>
+        <?php while($serv = mysqli_fetch_assoc($res_recientes)): ?>
+            <?php 
+            $m_lower = strtolower($serv['municipio']);
+            $is_featured = $serv['es_destacado'] ? 'featured' : '';
+            $emoji = $emojis[$serv['categoria']] ?? '🏷️';
+            $is_new = (strtotime($serv['created_at']) > strtotime('-7 days')) ? true : false;
+            ?>
+            <div class="card <?php echo $is_featured; ?>" data-municipio="<?php echo htmlspecialchars($m_lower); ?>">
+                <?php if($serv['imagen']): ?>
+                    <div class="card-img" style="background-image: url('uploads/<?php echo htmlspecialchars($serv['imagen']); ?>'); background-size: cover; background-position: center; color: transparent;"><?php echo $emoji; ?></div>
+                <?php else: ?>
+                    <div class="card-img"><?php echo $emoji; ?></div>
+                <?php endif; ?>
+                <div class="card-body">
+                    <div class="card-top">
+                        <?php if($serv['es_destacado']): ?>
+                            <span class="tag-featured">Destacado</span>
+                        <?php elseif($is_new): ?>
+                            <span class="tag-new">Nuevo</span>
+                        <?php endif; ?>
+                        <?php if($serv['verificado']): ?>
+                            <span class="card-verified">✔ Verificado</span>
+                        <?php endif; ?>
+                    </div>
+                    <div class="card-price"><sup>$</sup><?php echo htmlspecialchars($serv['precio']); ?></div>
+                    <div class="card-title"><?php echo htmlspecialchars($serv['titulo']); ?></div>
+                    <div class="card-meta">
+                        <span class="card-location">📍 <?php echo htmlspecialchars($serv['municipio']); ?></span>
+                    </div>
+                    <button class="btn-call" onclick="window.location='login.php'">📞 Ver Contacto</button>
                 </div>
-                <div class="card-price"><sup>$</sup>45</div>
-                <div class="card-title">Servicio de Plomería Express — Reparaciones urgentes a domicilio</div>
-                <div class="card-meta">
-                    <span class="card-location">📍 Chacao</span>
-                </div>
-                <button class="btn-call" onclick="window.location='login.php'">📞 Ver Contacto</button>
             </div>
-        </div>
-        <div class="card" data-municipio="baruta">
-            <div class="card-img">⚡</div>
-            <div class="card-body">
-                <div class="card-top">
-                    <span class="tag-new">Nuevo</span>
-                </div>
-                <div class="card-price"><sup>$</sup>80</div>
-                <div class="card-title">Electricista Certificado — Instalaciones y mantenimiento</div>
-                <div class="card-meta">
-                    <span class="card-location">📍 Baruta</span>
-                </div>
-                <button class="btn-call" onclick="window.location='login.php'">📞 Ver Contacto</button>
-            </div>
-        </div>
-        <div class="card featured" data-municipio="sucre">
-            <div class="card-img">🍕</div>
-            <div class="card-body">
-                <div class="card-top">
-                    <span class="tag-featured">Destacado</span>
-                    <span class="card-verified">✔ Verificado</span>
-                </div>
-                <div class="card-price"><sup>$</sup>12</div>
-                <div class="card-title">Cocina Doña Carmen — Almuerzos caseros con delivery</div>
-                <div class="card-meta">
-                    <span class="card-location">📍 Sucre</span>
-                </div>
-                <button class="btn-call" onclick="window.location='login.php'">📞 Ver Contacto</button>
-            </div>
-        </div>
-        <div class="card" data-municipio="libertador">
-            <div class="card-img">💈</div>
-            <div class="card-body">
-                <div class="card-top"></div>
-                <div class="card-price"><sup>$</sup>15</div>
-                <div class="card-title">Barbería Estilo Libre — Cortes modernos y afeitado</div>
-                <div class="card-meta">
-                    <span class="card-location">📍 Libertador</span>
-                </div>
-                <button class="btn-call" onclick="window.location='login.php'">📞 Ver Contacto</button>
-            </div>
-        </div>
-        <div class="card" data-municipio="chacao">
-            <div class="card-img">💻</div>
-            <div class="card-body">
-                <div class="card-top">
-                    <span class="tag-new">Nuevo</span>
-                </div>
-                <div class="card-price"><sup>$</sup>30</div>
-                <div class="card-title">Soporte Técnico PC — Reparación y mantenimiento de equipos</div>
-                <div class="card-meta">
-                    <span class="card-location">📍 Chacao</span>
-                </div>
-                <button class="btn-call" onclick="window.location='login.php'">📞 Ver Contacto</button>
-            </div>
-        </div>
-        <div class="card" data-municipio="baruta">
-            <div class="card-img">🏠</div>
-            <div class="card-body">
-                <div class="card-top">
-                    <span class="card-verified">✔ Verificado</span>
-                </div>
-                <div class="card-price"><sup>$</sup>200</div>
-                <div class="card-title">Remodelaciones LM — Pintura, cerámica y carpintería</div>
-                <div class="card-meta">
-                    <span class="card-location">📍 Baruta</span>
-                </div>
-                <button class="btn-call" onclick="window.location='login.php'">📞 Ver Contacto</button>
-            </div>
-        </div>
+        <?php endwhile; ?>
     </div>
 </section>
 
